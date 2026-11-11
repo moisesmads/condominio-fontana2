@@ -1,0 +1,142 @@
+{
+    "RC Esq": {
+        "nome": "Moisés Alejandro da Silva Gimenez",
+        "email": "moisesmads@gmail.com",
+        "telemovel": "968156084",
+        "nif": "276868340",
+        "quota": 15.0,
+        "perfil": "Ambos",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "RC Dir": {
+        "nome": "João Gonçalo Pinto Magalhães",
+        "email": "pedro.verissimo@gmail.com",
+        "telemovel": "910000002",
+        "nif": "218477910",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "1º Esq": {
+        "nome": "António Santos Alves",
+        "email": "antonio.santosalves@gmail.com",
+        "telemovel": "910000003",
+        "nif": "189728868",
+        "quota": 15.0,
+        "perfil": "Ambos",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "1º Dir": {
+        "nome": "Rosário Ganhão",
+        "email": "zaritaganhao@gmail.com",
+        "telemovel": "910000004",
+        "nif": "",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "2º Esq": {
+        "nome": "Inês Ferreira / Regina Alves",
+        "email": "irjoferreira@gmail.com",
+        "telemovel": "910000005",
+        "nif": "214183408",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "2º Dir": {
+        "nome": "António Alves",
+        "email": "toalves78@googlemail.com",
+        "telemovel": "910000006",
+        "nif": "182876110",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "3º Esq": {
+        "nome": "Lúcia de Jesus",
+        "email": "lucia.catarina.jesus@gmail.com",
+        "telemovel": "910000007",
+        "nif": "147306205",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "3º Dir": {
+        "nome": "Por Atribuir",
+        "email": "morador3d@fontana2.com",
+        "telemovel": "910000008",
+        "nif": "",
+        "quota": 15.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Garagem A": {
+        "nome": "Tomás Luís Santos Pinheiro",
+        "email": "samotpinheiro@gmail.com",
+        "telemovel": "910000009",
+        "nif": "115586911",
+        "quota": 5.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Garagem B": {
+        "nome": "Cristina Marques",
+        "email": "carreiramarques38@gmail.com",
+        "telemovel": "910000010",
+        "nif": "",
+        "quota": 5.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Garagem C": {
+        "nome": "Tiago Faria",
+        "email": "tiago.faria@gmail.com",
+        "telemovel": "910000011",
+        "nif": "",
+        "quota": 5.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Garagem D": {
+        "nome": "Albertina Rei / Carlos Rei",
+        "email": "carlos.rei@gmail.com",
+        "telemovel": "910000012",
+        "nif": "",
+        "quota": 5.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Garagem E": {
+        "nome": "José Correia",
+        "email": "jose.d.correia@gmail.com",
+        "telemovel": "910000013",
+        "nif": "115586911",
+        "quota": 5.0,
+        "perfil": "Morador",
+        "password": "fontana2",
+        "must_change": false
+    },
+    "Administração do Condomínio": {
+        "nome": "Despesas Comuns / Bancarias",
+        "email": "admin@fontana2.com",
+        "telemovel": "910000000",
+        "nif": "500000000",
+        "quota": 0.0,
+        "perfil": "Administrador",
+        "password": "admin",
+        "must_change": false
+    }
+}

@@ -1,0 +1,260 @@
+[
+    {
+        "timestamp": "2026-11-08 19:34:56",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 19:38:16",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Edición de Vecinos",
+        "detalhes": "Actualización masiva de los datos de los condóminos."
+    },
+    {
+        "timestamp": "2026-11-08 19:38:38",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Importação Extratos",
+        "detalhes": "Processados 10 ficheiros PDF."
+    },
+    {
+        "timestamp": "2026-11-08 19:39:54",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para Não Identificada (['2026-09'])."
+    },
+    {
+        "timestamp": "2026-11-08 19:40:19",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para Não Identificada (['2026-07'])."
+    },
+    {
+        "timestamp": "2026-11-08 20:27:09",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:31:34",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:36:34",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:37:33",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para RC Esq."
+    },
+    {
+        "timestamp": "2026-11-08 20:40:59",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:41:30",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -7.99 € para Não Identificada."
+    },
+    {
+        "timestamp": "2026-11-08 20:44:37",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:45:07",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -7.99 € para Administração do Condomínio."
+    },
+    {
+        "timestamp": "2026-11-08 20:48:14",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:48:40",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -0.32 € para Administração do Condomínio."
+    },
+    {
+        "timestamp": "2026-11-08 20:50:02",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para RC Dir."
+    },
+    {
+        "timestamp": "2026-11-08 20:50:33",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para RC Dir."
+    },
+    {
+        "timestamp": "2026-11-08 20:51:46",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -11.82 € para Administração do Condomínio."
+    },
+    {
+        "timestamp": "2026-11-08 20:55:58",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 20:57:27",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -11.82 € para Administração do Condomínio."
+    },
+    {
+        "timestamp": "2026-11-08 20:58:30",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de 15.0 € para RC Esq."
+    },
+    {
+        "timestamp": "2026-11-08 21:03:08",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -7.99 € para Administração do Condomínio."
+    },
+    {
+        "timestamp": "2026-11-08 21:03:34",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Registo de Gasto",
+        "detalhes": "Adicionada fatura FAT_0001 de 0.0 €."
+    },
+    {
+        "timestamp": "2026-11-08 21:09:04",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 21:10:39",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -11.82 € para Administração do Condomínio (Fatura: None)."
+    },
+    {
+        "timestamp": "2026-11-08 21:14:43",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -7.99 € para Administração do Condomínio (Fatura: None)."
+    },
+    {
+        "timestamp": "2026-11-08 21:15:46",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -0.32 € para Administração do Condomínio (Fatura: None)."
+    },
+    {
+        "timestamp": "2026-11-08 21:23:08",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 21:57:01",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 22:33:31",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 22:49:51",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 22:59:31",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 23:12:23",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-08 23:31:09",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 11:41:35",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 11:44:27",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 11:55:28",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 12:17:56",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 14:28:07",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-09 14:28:49",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -0.32 € para Administração do Condomínio (Fatura: None)."
+    },
+    {
+        "timestamp": "2026-11-09 14:28:52",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Conciliação Bancária",
+        "detalhes": "Conciliado movimento de -7.99 € para Administração do Condomínio (Fatura: None)."
+    },
+    {
+        "timestamp": "2026-11-11 16:32:33",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    },
+    {
+        "timestamp": "2026-11-11 16:41:43",
+        "utilizador": "moisesmads@gmail.com",
+        "acao": "Login Condómino",
+        "detalhes": "Acesso de RC Esq (moisesmads@gmail.com)."
+    }
+]
