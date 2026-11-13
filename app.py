@@ -1141,7 +1141,7 @@ else:
 
     morador_tab_opcoes = ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"]
     
-    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos"
+    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos" ANTES de desenhar o widget
     if st.session_state.get('jump_to_mes'):
         st.session_state['morador_menu_option'] = "🧾 Recibos"
 
@@ -1168,6 +1168,18 @@ else:
             meses_24.append(f"{ano}-{mes:02d}")
         meses_24.reverse()
 
+        # Estilo CSS para garantir que TODOS os botões da grelha têm exatamente o mesmo tamanho
+        st.markdown("""
+            <style>
+            div[data-testid="stColumn"] div[data-testid="stButton"] button {
+                width: 100% !important;
+                height: 70px !important;
+                white-space: pre-wrap !important;
+                border-radius: 8px !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
         col_list = st.columns(8)
         for idx, m_str in enumerate(meses_24):
             pago = False
@@ -1186,12 +1198,11 @@ else:
 
             col_target = col_list[idx % 8]
             if pago:
-                if col_target.button(f"✅ {m_str}\n\nPago", key=f"btn_pago_{m_str}", use_container_width=True, type="primary"):
+                if col_target.button(f"✅ {m_str}\n\nPago", key=f"btn_pago_{m_str}", type="primary"):
                     st.session_state['jump_to_mes'] = m_str
-                    st.session_state['morador_menu_option'] = "🧾 Recibos"
                     st.rerun()
             else:
-                col_target.button(f"❌ {m_str}\n\nPendente", key=f"btn_pend_{m_str}", disabled=True, use_container_width=True)
+                col_target.button(f"❌ {m_str}\n\nPendente", key=f"btn_pend_{m_str}", disabled=True)
 
     elif menu_morador == "🧾 Recibos":
         st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
