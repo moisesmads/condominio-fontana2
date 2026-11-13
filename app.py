@@ -19,6 +19,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 
+# --- Inicializar estados globais ---
+if 'jump_to_mes' not in st.session_state:
+    st.session_state['jump_to_mes'] = None
+
+if 'morador_menu_option' not in st.session_state:
+    st.session_state['morador_menu_option'] = "📊 O Meu Plano"
+
 # Configuração da página Streamlit
 st.set_page_config(
     page_title="Gestão Condomínio José Fontana N.º 2",
@@ -562,7 +569,7 @@ if not st.session_state['authenticated']:
     with st.form("login_form"):
         email_input = st.text_input("E-mail de Acesso")
         password_input = st.text_input("Palavra-passe", type="password")
-        submit_button = st.form_submit_button("Iniciar Sessão")
+        submit_button = st.form_submit_button("Iniciar Sessão", use_container_width=True)
 
         if submit_button:
             if email_input == "admin@fontana2.com" and password_input == "admin":
@@ -1132,12 +1139,24 @@ else:
     fracao_user = st.session_state['user_fracao']
     st.title(f"🏠 Portal do Condómino - Fracção {fracao_user}")
 
-    tab_m1, tab_m2, tab_m3 = st.tabs(["📊 O Meu Plano de Quotas", "🧾 Emitir Recibos", "📝 Actas de Condomínio"])
+    morador_tab_opcoes = ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"]
+    
+    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos"
+    if st.session_state.get('jump_to_mes'):
+        st.session_state['morador_menu_option'] = "🧾 Recibos"
 
-    with tab_m1:
+    menu_morador = st.radio(
+        "Navegação Morador",
+        morador_tab_opcoes,
+        key="morador_menu_option",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    if menu_morador == "📊 O Meu Plano":
         st.subheader("Estado de Pagamento das Quotas Mensais (Últimos 24 Meses)")
+        st.info("💡 **Dica:** Clique no botão de qualquer mês pago para abrir e emitir o recibo correspondente.")
 
-        # Gerar os últimos 24 meses
         meses_24 = []
         data_ref = datetime.now()
         for i in range(24):
@@ -1167,11 +1186,15 @@ else:
 
             col_target = col_list[idx % 8]
             if pago:
-                col_target.success(f"**{m_str}**\n\n✅ Pago")
+                # Botão verde totalmente clicável que redireciona diretamente para o recibo
+                if col_target.button(f"✅ {m_str}\n\n[ Emitir Recibo ]", key=f"btn_pago_{m_str}", use_container_width=True, type="primary"):
+                    st.session_state['jump_to_mes'] = m_str
+                    st.session_state['morador_menu_option'] = "🧾 Recibos"
+                    st.rerun()
             else:
-                col_target.error(f"**{m_str}**\n\n❌ Pendente")
+                col_target.error(f"❌ {m_str}\n\nPendente")
 
-    with tab_m2:
+    elif menu_morador == "🧾 Recibos":
         st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
         movs_recibos = df_movimentos[
             (df_movimentos['Fracção Associada'] == fracao_user) &
@@ -1179,9 +1202,21 @@ else:
         ]
 
         if not movs_recibos.empty:
+            mes_pre = st.session_state.get('jump_to_mes')
+            options = movs_recibos.index.tolist()
+            default_idx = 0
+            if mes_pre:
+                for i_opt, idx_opt in enumerate(options):
+                    q_str = str(df_movimentos.loc[idx_opt, 'Mes_Ano_Quota'] or '')
+                    if mes_pre in [x.strip() for x in q_str.split(',')]:
+                        default_idx = i_opt
+                        break
+                st.session_state['jump_to_mes'] = None  # Reset após a seleção
+
             mov_sel_idx = st.selectbox(
                 "Selecione a Transação de Pagamento:",
-                movs_recibos.index.tolist(),
+                options,
+                index=default_idx,
                 format_func=lambda x: f"Data: {df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y') if pd.notnull(df_movimentos.loc[x, 'Data Mov']) else ''} | Valor: {df_movimentos.loc[x, 'Valor (€)']} € | Quota(s): {df_movimentos.loc[x, 'Mes_Ano_Quota']}"
             )
 
@@ -1281,7 +1316,7 @@ else:
         else:
             st.info("Não existem pagamentos registados para esta fracção até o momento.")
 
-    with tab_m3:
+    elif menu_morador == "📝 Actas":
         st.subheader("📝 Consulta de Actas das Assembleias")
         if actas_db:
             for acta in actas_db:
