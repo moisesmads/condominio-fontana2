@@ -1144,32 +1144,27 @@ else:
 
     menu_morador = st.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_menu_option", horizontal=True)
 
-        if menu_morador == "📊 O Meu Plano":
+# --- VISTA MORADOR / CONDÓMINO ---
+else:
+    fracao_user = st.session_state['user_fracao']
+    st.title(f"🏠 Portal do Condómino - Fracção {fracao_user}")
+
+    if 'morador_menu_option' not in st.session_state: st.session_state['morador_menu_option'] = "📊 O Meu Plano"
+    if st.session_state.get('jump_to_mes'): st.session_state['morador_menu_option'] = "🧾 Recibos"
+
+    menu_morador = st.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_menu_option", horizontal=True)
+
+    if menu_morador == "📊 O Meu Plano":
         st.subheader("Estado de Pagamento das Quotas Mensais")
         
         meses = [f"{datetime.now().year - (1 if m > datetime.now().month else 0)}-{m:02d}" for m in range(datetime.now().month, 0, -1)] + [f"{datetime.now().year-1}-{m:02d}" for m in range(12, datetime.now().month, -1)]
         
-        # CSS para forçar todos os botões a terem o mesmo tamanho e estilo
-        st.markdown("""
-            <style>
-            div[data-testid="stButton"] button {
-                width: 100%;
-                height: 80px;
-                white-space: pre-wrap;
-                text-align: center;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }
-            </style>
-        """, unsafe_allow_html=True)
+        st.markdown("""<style>.stButton button {width: 100%; height: 65px; border-radius: 10px;}</style>""", unsafe_allow_html=True)
         
         cols = st.columns(6)
         for idx, m in enumerate(meses):
             pago = any(m in str(r.get('Mes_Ano_Quota', '')) for _, r in df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)].iterrows())
             
-            # Criamos sempre um botão para manter o tamanho, 
-            # usamos 'type' diferente para diferenciar Pago (Primary) de Pendente (Secondary)
             if pago:
                 if cols[idx % 6].button(f"✅ {m}\nPago", key=f"btn_{m}", type="primary"):
                     st.session_state['jump_to_mes'] = m
@@ -1188,28 +1183,15 @@ else:
             if mes_pre:
                 for i, idx in enumerate(options):
                     if mes_pre in str(df_movimentos.loc[idx, 'Mes_Ano_Quota']): default_idx = i; break
-                st.session_state['jump_to_mes'] = None 
+                st.session_state['jump_to_mes'] = None
             
-            sel_idx = st.selectbox("Selecione a Transação:", options, index=default_idx, format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov']} | {df_movimentos.loc[x, 'Valor (€)']}€ | {df_movimentos.loc[x, 'Mes_Ano_Quota']}")
+            sel_idx = st.selectbox("Selecione a Transação:", options, index=default_idx, format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y')} | {df_movimentos.loc[x, 'Valor (€)']}€ | {df_movimentos.loc[x, 'Mes_Ano_Quota']}")
             mov = df_movimentos.loc[sel_idx]
             
-            # Correção do erro TypeError: garantimos que ref_id seja sempre string
-            raw_hash = str(mov.get('Hash_Movimento', str(sel_idx)))
-            ref_id = raw_hash[:8].upper()
+            info_admin = obter_info_admin()
+            dados = {'ref_id': mov.get('Hash_Movimento', str(sel_idx))[:8].upper(), 'data_emissao': datetime.now().strftime('%d/%m/%Y'), 'fracao': fracao_user, 'titular': contactos_db.get(fracao_user, {}).get('nome', 'Condómino'), 'nif': contactos_db.get(fracao_user, {}).get('nif', 'N/A'), 'valor': float(mov['Valor (€)']), 'meses_pagos': str(mov.get('Mes_Ano_Quota', 'Quota')), 'data_processamento': mov['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov['Data Val']) else 'N/A', 'conta_bancaria': '9-3085758-000-001'}
             
-            dados = {
-                'ref_id': ref_id, 
-                'data_emissao': datetime.now().strftime('%d/%m/%Y'), 
-                'fracao': fracao_user, 
-                'titular': contactos_db.get(fracao_user, {}).get('nome', 'Condómino'), 
-                'nif': contactos_db.get(fracao_user, {}).get('nif', 'N/A'), 
-                'valor': float(mov['Valor (€)']), 
-                'meses_pagos': str(mov.get('Mes_Ano_Quota', 'Quota')), 
-                'data_processamento': mov['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov['Data Val']) else 'N/A', 
-                'conta_bancaria': '9-3085758-000-001'
-            }
-            
-            pdf = gerar_recibo_pdf(dados, obter_info_admin())
+            pdf = gerar_recibo_pdf(dados, info_admin)
             st.download_button("📥 Transferir Recibo (PDF)", data=pdf, file_name=f"Recibo_{dados['ref_id']}.pdf", mime="application/pdf", use_container_width=True)
         else: st.info("Não existem pagamentos.")
 
