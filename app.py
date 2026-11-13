@@ -19,7 +19,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 
-# --- Inicializar estados globais ---
+# --- Inicialização de Estados Globais ---
 if 'jump_to_mes' not in st.session_state:
     st.session_state['jump_to_mes'] = None
 
@@ -532,7 +532,6 @@ def gerar_recibo_pdf(dados_recibo, info_admin):
 def obter_info_admin():
     user_email = st.session_state.get('user_email', '').lower()
 
-    # 1. Procurar o utilizador atual nos contactos (excluindo a conta genérica se houver outra fração associada ao e-mail)
     for fracao, info in contactos_db.items():
         if info.get('email', '').lower() == user_email and fracao != "Administração do Condomínio":
             return {
@@ -540,7 +539,6 @@ def obter_info_admin():
                 'cargo': 'Administrador do Condomínio'
             }
 
-    # 2. Se for a conta admin genérica (admin@fontana2.com), procurar condómino com perfil "Ambos" ou "Administrador"
     for fracao, info in contactos_db.items():
         if info.get('perfil') in ['Administrador', 'Ambos'] and fracao != "Administração do Condomínio":
             return {
@@ -648,554 +646,696 @@ else:
 
 # --- NAVEGAÇÃO SEGÚN MODO ---
 if modo_vista == "Administrador":
-    menu = st.sidebar.radio("Navegação", ["📊 Visão Geral", "🏦 Movimentos", "🧾 Gastos", "📝 Actas", "📇 Condóminos", "🛡️ Auditoria"])
+    menu = st.sidebar.radio("Navegação", ["📊 Visão Geral", "🏦 Movimentos", "🧾 Gastos", "📝 Actas", "📇 Condóminos", "🛡️ Auditoria"], key="admin_menu_radio")
 else:
-    menu = st.sidebar.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"])
+    menu = st.sidebar.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_sidebar_radio")
 
 df_movimentos = carregar_movimentos()
 df_gastos = carregar_gastos()
 actas_db = carregar_actas()
 
 # --- VISTA ADMINISTRADOR ---
-if menu == "📊 Visão Geral":
-    st.title("📊 Visão Geral & Alertas 🚀")
+if modo_vista == "Administrador":
 
-    if not df_movimentos.empty and 'Data Mov' in df_movimentos.columns and df_movimentos['Data Mov'].notnull().any():
-        data_min_mov = df_movimentos['Data Mov'].min().strftime('%d/%m/%Y')
-        data_max_mov = df_movimentos['Data Mov'].max().strftime('%d/%m/%Y')
-        periodo_str = f"Período: {data_min_mov} até {data_max_mov}"
-    else:
-        periodo_str = "Sem movimentos registados"
-        data_max_mov = "N/A"
-    saldo_atual = df_movimentos['Saldo (€)'].iloc[-1] if not df_movimentos.empty and 'Saldo (€)' in df_movimentos.columns else 0.0
-    total_entradas = df_movimentos[df_movimentos['Valor (€)'] > 0]['Valor (€)'].sum() if not df_movimentos.empty and 'Valor (€)' in df_movimentos.columns else 0.0
-    total_saidas = abs(df_movimentos[df_movimentos['Valor (€)'] < 0]['Valor (€)'].sum()) if not df_movimentos.empty and 'Valor (€)' in df_movimentos.columns else 0.0
+    if menu == "📊 Visão Geral":
+        st.title("📊 Visão Geral & Alertas 🚀")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Saldo Bancário Actual", f"{saldo_atual:.2f} €", delta=f"Ref. a {data_max_mov}")
-    c2.metric("Total Entradas (Créditos)", f"{total_entradas:.2f} €", delta=periodo_str)
-    c3.metric("Total Saídas (Débitos)", f"{total_saidas:.2f} €", delta=periodo_str)
+        if not df_movimentos.empty and 'Data Mov' in df_movimentos.columns and df_movimentos['Data Mov'].notnull().any():
+            data_min_mov = df_movimentos['Data Mov'].min().strftime('%d/%m/%Y')
+            data_max_mov = df_movimentos['Data Mov'].max().strftime('%d/%m/%Y')
+            periodo_str = f"Período: {data_min_mov} até {data_max_mov}"
+        else:
+            periodo_str = "Sem movimentos registados"
+            data_max_mov = "N/A"
+        saldo_atual = df_movimentos['Saldo (€)'].iloc[-1] if not df_movimentos.empty and 'Saldo (€)' in df_movimentos.columns else 0.0
+        total_entradas = df_movimentos[df_movimentos['Valor (€)'] > 0]['Valor (€)'].sum() if not df_movimentos.empty and 'Valor (€)' in df_movimentos.columns else 0.0
+        total_saidas = abs(df_movimentos[df_movimentos['Valor (€)'] < 0]['Valor (€)'].sum()) if not df_movimentos.empty and 'Valor (€)' in df_movimentos.columns else 0.0
 
-    st.divider()
-    st.subheader("🚨 Alertas de Conformidade e Faturas em Falta")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Saldo Bancário Actual", f"{saldo_atual:.2f} €", delta=f"Ref. a {data_max_mov}")
+        c2.metric("Total Entradas (Créditos)", f"{total_entradas:.2f} €", delta=periodo_str)
+        c3.metric("Total Saídas (Débitos)", f"{total_saidas:.2f} €", delta=periodo_str)
 
-    despesas_totais = df_movimentos[df_movimentos['Valor (€)'] < 0] if not df_movimentos.empty else pd.DataFrame()
-    despesas_conciliadas = despesas_totais[despesas_totais['Reconciliado'] == "Sim"] if not despesas_totais.empty else pd.DataFrame()
+        st.divider()
+        st.subheader("🚨 Alertas de Conformidade e Faturas em Falta")
 
-    def exige_fatura(row):
-        fracao = str(row.get('Fracção Associada', ''))
-        desc = str(row.get('Descrição', '')).lower()
-        if fracao == "Administração do Condomínio":
-            if "imposto de selo" in desc or "manutencao de conta" in desc or "comissao" in desc:
-                return False
-        return True
+        despesas_totais = df_movimentos[df_movimentos['Valor (€)'] < 0] if not df_movimentos.empty else pd.DataFrame()
+        despesas_conciliadas = despesas_totais[despesas_totais['Reconciliado'] == "Sim"] if not despesas_totais.empty else pd.DataFrame()
 
-    if not despesas_conciliadas.empty:
-        precisam_fatura = despesas_conciliadas[despesas_conciliadas.apply(exige_fatura, axis=1)]
-        despesas_sem_fatura = precisam_fatura[
-            precisam_fatura['Fatura_Despesa_ID'].isna() | (precisam_fatura['Fatura_Despesa_ID'] == "")
-        ]
-    else:
-        despesas_sem_fatura = pd.DataFrame()
+        def exige_fatura(row):
+            fracao = str(row.get('Fracção Associada', ''))
+            desc = str(row.get('Descrição', '')).lower()
+            if fracao == "Administração do Condomínio":
+                if "imposto de selo" in desc or "manutencao de conta" in desc or "comissao" in desc:
+                    return False
+            return True
 
-    if len(despesas_totais) == 0:
-        st.info("Ainda não existem despesas (saídas) registadas no extrato.")
-    elif len(despesas_conciliadas) == 0:
-        st.warning(f"⚠️ Existem **{len(despesas_totais)}** despesas registadas, mas ainda nenhuma foi marcada como conciliada ('Sim').")
-    elif not despesas_sem_fatura.empty:
-        st.error(f"⚠️ Existem **{len(despesas_sem_fatura)}** despesas conciliadas que exigem fatura e estão sem comprovativo associado!")
-        st.dataframe(despesas_sem_fatura[['Data Mov', 'Descrição', 'Valor (€)']], use_container_width=True)
-    else:
-        st.success("✅ Todas as despesas conciliadas que exigem fatura possuem o respetivo comprovativo associado.")
+        if not despesas_conciliadas.empty:
+            precisam_fatura = despesas_conciliadas[despesas_conciliadas.apply(exige_fatura, axis=1)]
+            despesas_sem_fatura = precisam_fatura[
+                precisam_fatura['Fatura_Despesa_ID'].isna() | (precisam_fatura['Fatura_Despesa_ID'] == "")
+            ]
+        else:
+            despesas_sem_fatura = pd.DataFrame()
 
-elif menu == "🏦 Movimentos":
-    st.title("🏦 Gestão de Movimentos Bancários 🏦")
+        if len(despesas_totais) == 0:
+            st.info("Ainda não existem despesas (saídas) registadas no extrato.")
+        elif len(despesas_conciliadas) == 0:
+            st.warning(f"⚠️ Existem **{len(despesas_totais)}** despesas registadas, mas ainda nenhuma foi marcada como conciliada ('Sim').")
+        elif not despesas_sem_fatura.empty:
+            st.error(f"⚠️ Existem **{len(despesas_sem_fatura)}** despesas conciliadas que exigem fatura e estão sem comprovativo associado!")
+            st.dataframe(despesas_sem_fatura[['Data Mov', 'Descrição', 'Valor (€)']], use_container_width=True)
+        else:
+            st.success("✅ Todas as despesas conciliadas que exigem fatura possuem o respetivo comprovativo associado.")
 
-    uploaded_pdfs = st.file_uploader(
-        "Selecione os ficheiros PDF do extrato bancário BPI (pode escolher vários)",
-        type=["pdf"],
-        accept_multiple_files=True
-    )
+    elif menu == "🏦 Movimentos":
+        st.title("🏦 Gestão de Movimentos Bancários 🏦")
 
-    if uploaded_pdfs:
-        if not isinstance(uploaded_pdfs, list):
-            uploaded_pdfs = [uploaded_pdfs]
-
-        st.info(f"Selecionou {len(uploaded_pdfs)} ficheiro(s). Prima o botão abaixo para processar todos.")
-        if st.button("Processar Todos os Extratos PDF"):
-            progress_bar = st.progress(0)
-            status_container = st.empty()
-            logs_processamento = []
-
-            total_files = len(uploaded_pdfs)
-            for idx, pdf_file in enumerate(uploaded_pdfs):
-                status_container.write(f"⚡ A processar ficheiro {idx+1}/{total_files}: **{pdf_file.name}**...")
-                try:
-                    pdf_bytes = pdf_file.read()
-                    texto_pdf = extrair_texto_pdf(pdf_bytes)
-                    novos_movs = processar_extrato_bpi(texto_pdf)
-
-                    if novos_movs:
-                        df_novos = pd.DataFrame(novos_movs)
-                        df_novos['Data Mov'] = pd.to_datetime(df_novos['Data Mov'], format='%d/%m/%Y', errors='coerce')
-                        df_novos['Data Val'] = pd.to_datetime(df_novos['Data Val'], format='%d/%m/%Y', errors='coerce')
-
-                        hashes_existentes = set(df_movimentos['Hash_Movimento'].dropna())
-                        df_filtrado = df_novos[~df_novos['Hash_Movimento'].isin(hashes_existentes)]
-
-                        if not df_filtrado.empty:
-                            df_movimentos = pd.concat([df_movimentos, df_filtrado], ignore_index=True)
-                            salvar_movimentos(df_movimentos)
-                            logs_processamento.append(f"✅ **{pdf_file.name}**: {len(df_filtrado)} novos movimentos importados!")
-                        else:
-                            logs_processamento.append(f"⚠️ **{pdf_file.name}**: Todos os movimentos já estavam registados.")
-                    else:
-                        logs_processamento.append(f"❌ **{pdf_file.name}**: Não foi possível extrair dados de texto.")
-                except Exception as e:
-                    logs_processamento.append(f"❌ **{pdf_file.name}**: Erro inesperado: {e}")
-
-                progress_bar.progress((idx + 1) / total_files)
-
-            status_container.empty()
-            st.success("✨ Processamento em lote concluído!")
-            for log in logs_processamento:
-                st.markdown(log)
-
-            registrar_acao("Importação Extratos", f"Processados {total_files} ficheiros PDF.")
-            backup_automatico()
-            st.rerun()
-
-    st.divider()
-    st.subheader("Gestão e Reconciliação de Movimentos Bancários")
-
-    filtro_tempo = st.selectbox(
-        "Filtrar Período de Visualização de Movimentos:",
-        ["Últimos 12 Meses", "Ano Corrente (2026)", "Ano 2025", "Todo o Histórico Registado"]
-    )
-
-    df_display = df_movimentos.copy()
-    if not df_display.empty and 'Data Mov' in df_display.columns:
-        data_maxima = df_display['Data Mov'].max()
-        if filtro_tempo == "Últimos 12 Meses" and pd.notnull(data_maxima):
-            limite_data = data_maxima - pd.DateOffset(months=12)
-            df_display = df_display[df_display['Data Mov'] >= limite_data]
-        elif filtro_tempo == "Ano Corrente (2026)":
-            df_display = df_display[df_display['Data Mov'].dt.year == 2026]
-        elif filtro_tempo == "Ano 2025":
-            df_display = df_display[df_display['Data Mov'].dt.year == 2025]
-
-    cols_to_show = [col for col in df_display.columns if 'hash' not in col.lower()]
-    df_visual = df_display[cols_to_show]
-
-    st.markdown(f"**A apresentar {len(df_visual)} movimentos bancários:**")
-    st.dataframe(df_visual, use_container_width=True)
-
-    st.subheader("✏️ Associar Fracção, Administração, Quotas ou Faturas")
-    if not df_movimentos.empty:
-        mov_ids = df_movimentos.index.tolist()
-
-        def format_mov_option(x):
-            row = df_movimentos.loc[x]
-            data_str = row['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(row['Data Mov']) else ''
-            status_icon = "✅ [Conciliado]" if row.get('Reconciliado') == "Sim" else "⏳ [Pendente]"
-            frac_str = f"({row.get('Fracção Associada', 'Não Identificada')})" if row.get('Reconciliado') == "Sim" else ""
-            return f"{status_icon} Data: {data_str} | {row['Descrição']} | {row['Valor (€)']} € {frac_str}"
-
-        selected_idx = st.selectbox(
-            "Selecione a linha do movimento para reconciliar/editar:",
-            mov_ids,
-            format_func=format_mov_option
+        uploaded_pdfs = st.file_uploader(
+            "Selecione os ficheiros PDF do extrato bancário BPI (pode escolher vários)",
+            type=["pdf"],
+            accept_multiple_files=True
         )
 
-        row_sel = df_movimentos.loc[selected_idx]
-        st.info(f"Movimento Selecionado: **{row_sel['Descrição']}** ({row_sel['Valor (€)']} €)")
+        if uploaded_pdfs:
+            if not isinstance(uploaded_pdfs, list):
+                uploaded_pdfs = [uploaded_pdfs]
 
-        with st.form("form_reconciliar"):
-            c_frac, c_mes, c_rec = st.columns([2, 3, 1])
+            st.info(f"Selecionou {len(uploaded_pdfs)} ficheiro(s). Prima o botão abaixo para processar todos.")
+            if st.button("Processar Todos os Extratos PDF"):
+                progress_bar = st.progress(0)
+                status_container = st.empty()
+                logs_processamento = []
 
-            lista_fracoes = ["Não Identificada", "Administração do Condomínio"] + [f for f in contactos_db.keys() if f != "Administração do Condomínio"]
+                total_files = len(uploaded_pdfs)
+                for idx, pdf_file in enumerate(uploaded_pdfs):
+                    status_container.write(f"⚡ A processar ficheiro {idx+1}/{total_files}: **{pdf_file.name}**...")
+                    try:
+                        pdf_bytes = pdf_file.read()
+                        texto_pdf = extrair_texto_pdf(pdf_bytes)
+                        novos_movs = processar_extrato_bpi(texto_pdf)
 
-            valor_fracao = str(row_sel.get('Fracção Associada', 'Não Identificada'))
-            if valor_fracao in lista_fracoes:
-                fracAtual = valor_fracao
-            else:
-                fracAtual = "Não Identificada"
+                        if novos_movs:
+                            df_novos = pd.DataFrame(novos_movs)
+                            df_novos['Data Mov'] = pd.to_datetime(df_novos['Data Mov'], format='%d/%m/%Y', errors='coerce')
+                            df_novos['Data Val'] = pd.to_datetime(df_novos['Data Val'], format='%d/%m/%Y', errors='coerce')
 
-            index_frac = lista_fracoes.index(fracAtual) if fracAtual in lista_fracoes else 0
-            nova_fracao = c_frac.selectbox("Atribuir a Fracção / Administração", lista_fracoes, index=index_frac)
+                            hashes_existentes = set(df_movimentos['Hash_Movimento'].dropna())
+                            df_filtrado = df_novos[~df_novos['Hash_Movimento'].isin(hashes_existentes)]
 
-            opcoes_meses = [f"{ano}-{mes:02d}" for ano in range(2025, 2028) for mes in range(1, 13)]
-            meses_atuais = [m.strip() for m in str(row_sel.get('Mes_Ano_Quota', '') or '').split(',') if m.strip() in opcoes_meses]
-            novos_meses = c_mes.multiselect("Meses de Quota Associados (se aplicável):", opcoes_meses, default=meses_atuais)
+                            if not df_filtrado.empty:
+                                df_movimentos = pd.concat([df_movimentos, df_filtrado], ignore_index=True)
+                                salvar_movimentos(df_movimentos)
+                                logs_processamento.append(f"✅ **{pdf_file.name}**: {len(df_filtrado)} novos movimentos importados!")
+                            else:
+                                logs_processamento.append(f"⚠️ **{pdf_file.name}**: Todos os movimentos já estavam registados.")
+                        else:
+                            logs_processamento.append(f"❌ **{pdf_file.name}**: Não foi possível extrair dados de texto.")
+                    except Exception as e:
+                        logs_processamento.append(f"❌ **{pdf_file.name}**: Erro inesperado: {e}")
 
-            nova_fatura_id = None
-            if row_sel['Valor (€)'] < 0:
-                st.markdown("---")
-                st.markdown("🧾 **Vincular Fatura / Despesa Registada:**")
-                lista_faturas_opcoes = ["Nenhuma / Não Aplicável"]
-                if not df_gastos.empty:
-                    for _, g_row in df_gastos.iterrows():
-                        lista_faturas_opcoes.append(f"{g_row['ID']} - {g_row.get('Fornecedor', 'N/A')} ({g_row['Valor (€)']} €)")
+                    progress_bar.progress((idx + 1) / total_files)
 
-                fatAtual_id = row_sel.get('Fatura_Despesa_ID')
-                default_fat_idx = 0
-                if pd.notnull(fatAtual_id) and fatAtual_id != "":
-                    for idx_f, opt in enumerate(lista_faturas_opcoes):
-                        if opt.startswith(str(fatAtual_id)):
-                            default_fat_idx = idx_f
-                            break
+                status_container.empty()
+                st.success("✨ Processamento em lote concluído!")
+                for log in logs_processamento:
+                    st.markdown(log)
 
-                sel_fat_opt = st.selectbox("Selecione a Fatura correspondente a este gasto:", lista_faturas_opcoes, index=default_fat_idx)
-                if sel_fat_opt != "Nenhuma / Não Aplicável":
-                    nova_fatura_id = sel_fat_opt.split(" - ")[0]
-
-            novo_status = c_rec.selectbox("Reconciliado", ["Sim", "Não"], index=0 if row_sel['Reconciliado'] == "Sim" else 1)
-
-            btn_salvar_rec = st.form_submit_button("Gravar Alterações de Reconciliação")
-
-            if btn_salvar_rec:
-                df_movimentos.loc[selected_idx, 'Fracção Associada'] = nova_fracao
-                df_movimentos.loc[selected_idx, 'Mes_Ano_Quota'] = ", ".join(novos_meses) if novos_meses else None
-                df_movimentos.loc[selected_idx, 'Reconciliado'] = novo_status
-
-                if novo_status == "Sim":
-                    info_admin_validacao = obter_info_admin()
-                    df_movimentos.loc[selected_idx, 'Administrador Validador'] = info_admin_validacao['nome']
-                else:
-                    df_movimentos.loc[selected_idx, 'Administrador Validador'] = None
-
-                if row_sel['Valor (€)'] < 0:
-                    df_movimentos.loc[selected_idx, 'Fatura_Despesa_ID'] = nova_fatura_id
-                    if nova_fatura_id and not df_gastos.empty and 'ID' in df_gastos.columns:
-                        hash_m = row_sel.get('Hash_Movimento', '')
-                        df_gastos.loc[df_gastos['ID'] == nova_fatura_id, 'Hash_Movimento'] = hash_m
-                        salvar_gastos(df_gastos)
-
-                salvar_movimentos(df_movimentos)
-                registrar_acao("Conciliação Bancária", f"Conciliado movimento de {row_sel['Valor (€)']} € para {nova_fracao} (Fatura: {nova_fatura_id}).")
+                registrar_acao("Importação Extratos", f"Processados {total_files} ficheiros PDF.")
                 backup_automatico()
-                st.success("Reconciliação e associação de fatura atualizadas com sucesso!")
                 st.rerun()
 
-elif menu == "🧾 Gastos":
-    st.title("🧾 Gastos e Faturas 🧾")
-    st.subheader("🧾 Registo e Anexo de Faturas de Gastos")
-    with st.form("form_registo_gasto"):
-        cg0, cg1, cg2, cg3 = st.columns([2, 2, 3, 2])
-        num_fatura_input = cg0.text_input("N.º da Fatura / Recibo (Ex: FT 2026/123)", placeholder="Obrigatório")
-        data_gasto = cg1.date_input("Data da Fatura", datetime.now())
-        fornecedor = cg2.text_input("Fornecedor / Entidade")
-        valor_gasto = cg3.number_input("Valor (€)", min_value=0.0, step=0.01)
+        st.divider()
+        st.subheader("Gestão e Reconciliação de Movimentos Bancários")
 
-        descr_gasto = st.text_input("Descrição da Despesa")
-        categoria = st.selectbox("Categoria de Despesa", ["Eletricidade", "Limpeza", "Manutenção", "Seguro", "Comissões Bancárias", "Outros"])
+        filtro_tempo = st.selectbox(
+            "Filtrar Período de Visualização de Movimentos:",
+            ["Últimos 12 Meses", "Ano Corrente (2026)", "Ano 2025", "Todo o Histórico Registado"]
+        )
 
-        movs_exit = df_movimentos[df_movimentos['Valor (€)'] < 0] if not df_movimentos.empty else pd.DataFrame()
-        lista_mov_opcoes = ["Nenhum / Associar depois"]
-        if not movs_exit.empty:
-            for idx_m, m_row in movs_exit.iterrows():
-                d_mov = m_row['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(m_row['Data Mov']) else ''
-                lista_mov_opcoes.append(f"Índice {idx_m} | Data: {d_mov} | {m_row['Descrição']} ({m_row['Valor (€)']} €)")
+        df_display = df_movimentos.copy()
+        if not df_display.empty and 'Data Mov' in df_display.columns:
+            data_maxima = df_display['Data Mov'].max()
+            if filtro_tempo == "Últimos 12 Meses" and pd.notnull(data_maxima):
+                limite_data = data_maxima - pd.DateOffset(months=12)
+                df_display = df_display[df_display['Data Mov'] >= limite_data]
+            elif filtro_tempo == "Ano Corrente (2026)":
+                df_display = df_display[df_display['Data Mov'].dt.year == 2026]
+            elif filtro_tempo == "Ano 2025":
+                df_display = df_display[df_display['Data Mov'].dt.year == 2025]
 
-        assoc_mov_escolha = st.selectbox("Vincular diretamente a um Movimento Bancário de Saída (Opcional):", lista_mov_opcoes)
+        cols_to_show = [col for col in df_display.columns if 'hash' not in col.lower()]
+        df_visual = df_display[cols_to_show]
 
-        ficheiro_fatura = st.file_uploader("Ficheiro da Fatura (PDF / JPG / PNG)", type=["pdf", "jpg", "jpeg", "png"])
+        st.markdown(f"**A apresentar {len(df_visual)} movimentos bancários:**")
+        st.dataframe(df_visual, use_container_width=True)
 
-        btn_guardar_gasto = st.form_submit_button("Guardar Fatura / Despesa")
+        st.subheader("✏️ Associar Fracção, Administração, Quotas ou Faturas")
+        if not df_movimentos.empty:
+            mov_ids = df_movimentos.index.tolist()
 
-        if btn_guardar_gasto:
-            if not num_fatura_input.strip():
-                st.error("❌ Por favor, introduza o número da fatura/recibo.")
-            else:
-                fatura_id = num_fatura_input.strip()
-                if not df_gastos.empty and 'ID' in df_gastos.columns and fatura_id in df_gastos['ID'].values:
-                    st.error(f"❌ Já existe uma fatura registada com o número '{fatura_id}'. Utilize um número único.")
+            def format_mov_option(x):
+                row = df_movimentos.loc[x]
+                data_str = row['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(row['Data Mov']) else ''
+                status_icon = "✅ [Conciliado]" if row.get('Reconciliado') == "Sim" else "⏳ [Pendente]"
+                frac_str = f"({row.get('Fracção Associada', 'Não Identificada')})" if row.get('Reconciliado') == "Sim" else ""
+                return f"{status_icon} Data: {data_str} | {row['Descrição']} | {row['Valor (€)']} € {frac_str}"
+
+            selected_idx = st.selectbox(
+                "Selecione a linha do movimento para reconciliar/editar:",
+                mov_ids,
+                format_func=format_mov_option
+            )
+
+            row_sel = df_movimentos.loc[selected_idx]
+            st.info(f"Movimento Selecionado: **{row_sel['Descrição']}** ({row_sel['Valor (€)']} €)")
+
+            with st.form("form_reconciliar"):
+                c_frac, c_mes, c_rec = st.columns([2, 3, 1])
+
+                lista_fracoes = ["Não Identificada", "Administração do Condomínio"] + [f for f in contactos_db.keys() if f != "Administração do Condomínio"]
+
+                valor_fracao = str(row_sel.get('Fracção Associada', 'Não Identificada'))
+                if valor_fracao in lista_fracoes:
+                    fracAtual = valor_fracao
                 else:
-                    nome_ficheiro = ""
-                    if ficheiro_fatura is not None:
-                        nome_ficheiro = f"{fatura_id.replace('/', '_')}_{ficheiro_fatura.name}"
-                        os.makedirs(DIR_ANEXOS, exist_ok=True)
-                        with open(os.path.join(DIR_ANEXOS, nome_ficheiro), "wb") as f:
-                            f.write(ficheiro_fatura.read())
+                    fracAtual = "Não Identificada"
 
-                    hash_vinculado = ""
-                    if assoc_mov_escolha != "Nenhum / Associar depois":
-                        try:
-                            idx_str = assoc_mov_escolha.split(" | ")[0].replace("Índice ", "").strip()
-                            mov_idx = int(idx_str)
-                            hash_vinculado = df_movimentos.loc[mov_idx, 'Hash_Movimento']
-                            df_movimentos.loc[mov_idx, 'Fatura_Despesa_ID'] = fatura_id
-                            df_movimentos.loc[mov_idx, 'Fracção Associada'] = "Administração do Condomínio"
-                            df_movimentos.loc[mov_idx, 'Reconciliado'] = "Sim"
-                            info_admin_vinc = obter_info_admin()
-                            df_movimentos.loc[mov_idx, 'Administrador Validador'] = info_admin_vinc['nome']
-                            salvar_movimentos(df_movimentos)
-                        except Exception as e:
-                            print(f"Erro ao vincular movimento: {e}")
-                    nova_linha_gasto = {
-                        "ID": fatura_id,
-                        "Data": data_gasto.strftime("%Y-%m-%d"),
-                        "Fornecedor": fornecedor,
-                        "Descrição": descr_gasto,
-                        "Valor (€)": valor_gasto,
-                        "Categoria": categoria,
-                        "Nome_Ficheiro": nome_ficheiro,
-                        "Hash_Movimento": hash_vinculado
-                    }
-                    df_gastos = pd.concat([df_gastos, pd.DataFrame([nova_linha_gasto])], ignore_index=True)
-                    salvar_gastos(df_gastos)
-                    registrar_acao("Registo de Gasto", f"Adicionada fatura '{fatura_id}' de {valor_gasto} €.")
+                index_frac = lista_fracoes.index(fracAtual) if fracAtual in lista_fracoes else 0
+                nova_fracao = c_frac.selectbox("Atribuir a Fracção / Administração", lista_fracoes, index=index_frac)
+
+                opcoes_meses = [f"{ano}-{mes:02d}" for ano in range(2025, 2028) for mes in range(1, 13)]
+                meses_atuais = [m.strip() for m in str(row_sel.get('Mes_Ano_Quota', '') or '').split(',') if m.strip() in opcoes_meses]
+                novos_meses = c_mes.multiselect("Meses de Quota Associados (se aplicável):", opcoes_meses, default=meses_atuais)
+
+                nova_fatura_id = None
+                if row_sel['Valor (€)'] < 0:
+                    st.markdown("---")
+                    st.markdown("🧾 **Vincular Fatura / Despesa Registada:**")
+                    lista_faturas_opcoes = ["Nenhuma / Não Aplicável"]
+                    if not df_gastos.empty:
+                        for _, g_row in df_gastos.iterrows():
+                            lista_faturas_opcoes.append(f"{g_row['ID']} - {g_row.get('Fornecedor', 'N/A')} ({g_row['Valor (€)']} €)")
+
+                    fatAtual_id = row_sel.get('Fatura_Despesa_ID')
+                    default_fat_idx = 0
+                    if pd.notnull(fatAtual_id) and fatAtual_id != "":
+                        for idx_f, opt in enumerate(lista_faturas_opcoes):
+                            if opt.startswith(str(fatAtual_id)):
+                                default_fat_idx = idx_f
+                                break
+
+                    sel_fat_opt = st.selectbox("Selecione a Fatura correspondente a este gasto:", lista_faturas_opcoes, index=default_fat_idx)
+                    if sel_fat_opt != "Nenhuma / Não Aplicável":
+                        nova_fatura_id = sel_fat_opt.split(" - ")[0]
+
+                novo_status = c_rec.selectbox("Reconciliado", ["Sim", "Não"], index=0 if row_sel['Reconciliado'] == "Sim" else 1)
+
+                btn_salvar_rec = st.form_submit_button("Gravar Alterações de Reconciliação")
+
+                if btn_salvar_rec:
+                    df_movimentos.loc[selected_idx, 'Fracção Associada'] = nova_fracao
+                    df_movimentos.loc[selected_idx, 'Mes_Ano_Quota'] = ", ".join(novos_meses) if novos_meses else None
+                    df_movimentos.loc[selected_idx, 'Reconciliado'] = novo_status
+
+                    if novo_status == "Sim":
+                        info_admin_validacao = obter_info_admin()
+                        df_movimentos.loc[selected_idx, 'Administrador Validador'] = info_admin_validacao['nome']
+                    else:
+                        df_movimentos.loc[selected_idx, 'Administrador Validador'] = None
+
+                    if row_sel['Valor (€)'] < 0:
+                        df_movimentos.loc[selected_idx, 'Fatura_Despesa_ID'] = nova_fatura_id
+                        if nova_fatura_id and not df_gastos.empty and 'ID' in df_gastos.columns:
+                            hash_m = row_sel.get('Hash_Movimento', '')
+                            df_gastos.loc[df_gastos['ID'] == nova_fatura_id, 'Hash_Movimento'] = hash_m
+                            salvar_gastos(df_gastos)
+
+                    salvar_movimentos(df_movimentos)
+                    registrar_acao("Conciliação Bancária", f"Conciliado movimento de {row_sel['Valor (€)']} € para {nova_fracao} (Fatura: {nova_fatura_id}).")
                     backup_automatico()
-                    st.success(f"Fatura '{fatura_id}' registada com sucesso!")
+                    st.success("Reconciliação e associação de fatura atualizadas com sucesso!")
                     st.rerun()
 
-    st.divider()
-    st.subheader("Faturas Registadas no Sistema")
-    st.dataframe(df_gastos, use_container_width=True)
+    elif menu == "🧾 Gastos":
+        st.title("🧾 Gastos e Faturas 🧾")
+        st.subheader("🧾 Registo e Anexo de Faturas de Gastos")
+        with st.form("form_registo_gasto"):
+            cg0, cg1, cg2, cg3 = st.columns([2, 2, 3, 2])
+            num_fatura_input = cg0.text_input("N.º da Fatura / Recibo (Ex: FT 2026/123)", placeholder="Obrigatório")
+            data_gasto = cg1.date_input("Data da Fatura", datetime.now())
+            fornecedor = cg2.text_input("Fornecedor / Entidade")
+            valor_gasto = cg3.number_input("Valor (€)", min_value=0.0, step=0.01)
 
-elif menu == "📝 Actas":
-    st.title("📝 Actas de Assembleia 📝")
-    st.subheader("📝 Módulo de Actas da Assembleia")
-    with st.form("form_acta"):
-        ca1, ca2 = st.columns(2)
-        num_acta = ca1.text_input("Número / Título da Acta")
-        data_acta = ca2.date_input("Data da Reunião", datetime.now())
-        conteudo_transcicao = st.text_area("Transcrição Completa ou Resumo da Acta", height=150)
-        anexo_acta = st.file_uploader("Anexo em PDF/Imagem da Acta Assinada", type=["pdf", "jpg", "png"])
+            descr_gasto = st.text_input("Descrição da Despesa")
+            categoria = st.selectbox("Categoria de Despesa", ["Eletricidade", "Limpeza", "Manutenção", "Seguro", "Comissões Bancárias", "Outros"])
 
-        btn_salvar_acta = st.form_submit_button("Registar Acta")
-        if btn_salvar_acta:
-            nome_anexo = ""
-            if anexo_acta is not None:
-                nome_anexo = f"Acta_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{anexo_acta.name}"
-                os.makedirs(DIR_ACTAS, exist_ok=True)
-                with open(os.path.join(DIR_ACTAS, nome_anexo), "wb") as f:
-                    f.write(anexo_acta.read())
+            movs_exit = df_movimentos[df_movimentos['Valor (€)'] < 0] if not df_movimentos.empty else pd.DataFrame()
+            lista_mov_opcoes = ["Nenhum / Associar depois"]
+            if not movs_exit.empty:
+                for idx_m, m_row in movs_exit.iterrows():
+                    d_mov = m_row['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(m_row['Data Mov']) else ''
+                    lista_mov_opcoes.append(f"Índice {idx_m} | Data: {d_mov} | {m_row['Descrição']} ({m_row['Valor (€)']} €)")
 
-            nova_acta = {
-                "id": len(actas_db) + 1,
-                "titulo": num_acta,
-                "data": data_acta.strftime("%Y-%m-%d"),
-                "texto": conteudo_transcicao,
-                "anexo": nome_anexo
-            }
-            actas_db.append(nova_acta)
-            salvar_actas(actas_db)
-            registrar_acao("Registo de Acta", f"Adicionada acta: {num_acta}.")
-            backup_automatico()
-            st.success("Acta guardada com sucesso!")
-            st.rerun()
+            assoc_mov_escolha = st.selectbox("Vincular diretamente a um Movimento Bancário de Saída (Opcional):", lista_mov_opcoes)
 
-    st.divider()
-    st.subheader("Actas Registadas")
-    for acta in actas_db:
-        with st.expander(f"📌 {acta['titulo']} - Data: {acta['data']}"):
-            st.write(acta['texto'])
-            if acta.get('anexo'):
-                st.info(f"Ficheiro Anexo: {acta['anexo']}")
+            ficheiro_fatura = st.file_uploader("Ficheiro da Fatura (PDF / JPG / PNG)", type=["pdf", "jpg", "jpeg", "png"])
 
-elif menu == "📇 Condóminos":
-    st.title("📇 Gestão de Condóminos 📇")
-    st.subheader("📇 Gestão de Condóminos e Credenciais de Acesso")
-    st.info("💡 **Dica:** Pode editar diretamente na tabela abaixo.")
+            btn_guardar_gasto = st.form_submit_button("Guardar Fatura / Despesa")
 
-    rows_contactos = []
-    for fracao, info in contactos_db.items():
-        if fracao == "Administração do Condomínio":
-            continue
-        rows_contactos.append({
-            "Fracção": fracao,
-            "Nome do Titular": info.get('nome', ''),
-            "Telemóvel": info.get('telemovel', ''),
-            "E-mail": info.get('email', ''),
-            "NIF": info.get('nif', ''),
-            "Quota Mensal (€)": info.get('quota', 15.0),
-            "Perfil": info.get('perfil', 'Morador')
-        })
-
-    df_contactos_editavel = pd.DataFrame(rows_contactos)
-
-    df_editado = st.data_editor(
-        df_contactos_editavel,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Fracção": st.column_config.TextColumn("Fracção", required=True),
-            "Nome do Titular": st.column_config.TextColumn("Nome do Titular", required=True),
-            "Telemóvel": st.column_config.TextColumn("Telemóvel"),
-            "E-mail": st.column_config.TextColumn("E-mail", required=True),
-            "NIF": st.column_config.TextColumn("NIF"),
-            "Quota Mensal (€)": st.column_config.NumberColumn("Quota Mensal (€)", min_value=0.0, format="%.2f"),
-            "Perfil": st.column_config.SelectboxColumn("Perfil", options=["Morador", "Ambos", "Administrador"], required=True)
-        }
-    )
-
-    st.divider()
-    btn_salvar_edicao = st.button("💾 Guardar Alterações na Tabela de Condóminos")
-
-    if btn_salvar_edicao:
-        fraccoes_novas = df_editado["Fracção"].tolist()
-        if len(fraccoes_novas) != len(set(fraccoes_novas)):
-            st.error("❌ Erro: Existem fracções duplicadas.")
-        else:
-            novo_contactos_db = {"Administração do Condomínio": contactos_db.get("Administração do Condomínio", CONTACTOS_INICIAIS["Administração do Condomínio"])}
-            for _, row in df_editado.iterrows():
-                fracao_key = str(row["Fracção"]).strip()
-                pwd_actual = contactos_db.get(fracao_key, {}).get('password', 'fontana2')
-                must_change_actual = contactos_db.get(fracao_key, {}).get('must_change', False)
-
-                novo_contactos_db[fracao_key] = {
-                    "nome": row["Nome do Titular"],
-                    "email": row["E-mail"],
-                    "telemovel": row["Telemóvel"],
-                    "nif": row["NIF"],
-                    "quota": float(row["Quota Mensal (€)"]),
-                    "perfil": row["Perfil"],
-                    "password": pwd_actual,
-                    "must_change": must_change_actual
-                }
-
-            contactos_db = novo_contactos_db
-            salvar_contactos(contactos_db)
-            registrar_acao("Edição de Condóminos", "Actualização da tabela de condóminos.")
-            backup_automatico()
-            st.success("✅ Condóminos atualizados com sucesso!")
-            st.rerun()
-
-    st.divider()
-    st.subheader("🔑 Redefinir Palavra-passe de um Condómino")
-    with st.form("form_reset_pwd"):
-        fracao_target = st.selectbox("Selecione a Fracção:", [f for f in contactos_db.keys() if f != "Administração do Condomínio"])
-        nova_temp_pwd = st.text_input("Nova Palavra-passe Temporária", value="fontana2")
-        btn_reset = st.form_submit_button("Resetar Palavra-passe e Forçar Alteração")
-
-        if btn_reset:
-            contactos_db[fracao_target]['password'] = nova_temp_pwd
-            contactos_db[fracao_target]['must_change'] = True
-            salvar_contactos(contactos_db)
-            registrar_acao("Reset de Password", f"Palavra-passe redefinida para {fracao_target}.")
-            backup_automatico()
-            st.success(f"Palavra-passe de {fracao_target} redefinida com sucesso.")
-
-elif menu == "🛡️ Auditoria":
-    st.title("🛡️ Auditoria & Backups 🛡️")
-    st.subheader("🛡️ Auditoria & Backups do Sistema")
-
-    st.markdown("### 📥 Criar e Transferir Cópia de Segurança")
-    st.write("Transfira um ficheiro `.zip` com todos os dados da base de dados e anexos antes de realizar atualizações.")
-
-    zip_buffer = gerar_backup_zip()
-    data_zip = zip_buffer.read()
-
-    st.download_button(
-        label="⬇️ Transferir Backup Completo (.zip)",
-        data=data_zip,
-        file_name=f"Backup_Condominio_Fontana2_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
-        mime="application/zip",
-        use_container_width=True
-    )
-
-    st.divider()
-    st.markdown("### 🔄 Restaurar / Transferir Backup (Fusão Inteligente)")
-    st.warning("⚠️ **Atenção:** Ao enviar um backup anterior `.zip`, o sistema fará uma **validação e fusão inteligente (Merge)**.")
-    backup_submetido = st.file_uploader("Selecione o ficheiro `.zip` do backup para restaurar", type=["zip"])
-    if backup_submetido is not None:
-        if st.button("🚀 Processar e Fundir Dados do Backup"):
-            with st.spinner("A analisar e a restaurar dados em segurança..."):
-                sucesso, relatorio = restaurar_backup_zip(backup_submetido)
-                if sucesso:
-                    st.success("✅ Restauro e fusão concluídos com sucesso!")
-                    st.markdown("**Relatório da Fusão:**")
-                    for linha in relatorio:
-                        st.write(f"- {linha}")
-                    registrar_acao("Restauro de Backup", "Importação e fusão bem-sucedida de ficheiro ZIP de backup.")
-                    backup_automatico()
+            if btn_guardar_gasto:
+                if not num_fatura_input.strip():
+                    st.error("❌ Por favor, introduza o número da fatura/recibo.")
                 else:
-                    st.error("❌ Ocorreu um erro ao restaurar o backup.")
-                    for erro in relatorio:
-                        st.error(erro)
+                    fatura_id = num_fatura_input.strip()
+                    if not df_gastos.empty and 'ID' in df_gastos.columns and fatura_id in df_gastos['ID'].values:
+                        st.error(f"❌ Já existe uma fatura registada com o número '{fatura_id}'. Utilize um número único.")
+                    else:
+                        nome_ficheiro = ""
+                        if ficheiro_fatura is not None:
+                            nome_ficheiro = f"{fatura_id.replace('/', '_')}_{ficheiro_fatura.name}"
+                            os.makedirs(DIR_ANEXOS, exist_ok=True)
+                            with open(os.path.join(DIR_ANEXOS, nome_ficheiro), "wb") as f:
+                                f.write(ficheiro_fatura.read())
 
-    st.divider()
-    st.subheader("📋 Diário de Auditoria")
-    logs = carregar_logs()
-    st.write(f"Total de entradas registradas no diário de auditoria: **{len(logs)}**")
+                        hash_vinculado = ""
+                        if assoc_mov_escolha != "Nenhum / Associar depois":
+                            try:
+                                idx_str = assoc_mov_escolha.split(" | ")[0].replace("Índice ", "").strip()
+                                mov_idx = int(idx_str)
+                                hash_vinculado = df_movimentos.loc[mov_idx, 'Hash_Movimento']
+                                df_movimentos.loc[mov_idx, 'Fatura_Despesa_ID'] = fatura_id
+                                df_movimentos.loc[mov_idx, 'Fracção Associada'] = "Administração do Condomínio"
+                                df_movimentos.loc[mov_idx, 'Reconciliado'] = "Sim"
+                                info_admin_vinc = obter_info_admin()
+                                df_movimentos.loc[mov_idx, 'Administrador Validador'] = info_admin_vinc['nome']
+                                salvar_movimentos(df_movimentos)
+                            except Exception as e:
+                                print(f"Erro ao vincular movimento: {e}")
+                        nova_linha_gasto = {
+                            "ID": fatura_id,
+                            "Data": data_gasto.strftime("%Y-%m-%d"),
+                            "Fornecedor": fornecedor,
+                            "Descrição": descr_gasto,
+                            "Valor (€)": valor_gasto,
+                            "Categoria": categoria,
+                            "Nome_Ficheiro": nome_ficheiro,
+                            "Hash_Movimento": hash_vinculado
+                        }
+                        df_gastos = pd.concat([df_gastos, pd.DataFrame([nova_linha_gasto])], ignore_index=True)
+                        salvar_gastos(df_gastos)
+                        registrar_acao("Registo de Gasto", f"Adicionada fatura '{fatura_id}' de {valor_gasto} €.")
+                        backup_automatico()
+                        st.success(f"Fatura '{fatura_id}' registada com sucesso!")
+                        st.rerun()
 
-    if logs:
-        df_logs = pd.DataFrame(logs)
-        st.dataframe(df_logs.sort_values(by="timestamp", ascending=False), use_container_width=True)
+        st.divider()
+        st.subheader("Faturas Registadas no Sistema")
+        st.dataframe(df_gastos, use_container_width=True)
 
-        csv_logs = df_logs.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Transferir Historial de Auditoria (CSV)",
-            data=csv_logs,
-            file_name=f"auditoria_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
+    elif menu == "📝 Actas":
+        st.title("📝 Actas de Assembleia 📝")
+        st.subheader("📝 Módulo de Actas da Assembleia")
+        with st.form("form_acta"):
+            ca1, ca2 = st.columns(2)
+            num_acta = ca1.text_input("Número / Título da Acta")
+            data_acta = ca2.date_input("Data da Reunião", datetime.now())
+            conteudo_transcicao = st.text_area("Transcrição Completa ou Resumo da Acta", height=150)
+            anexo_acta = st.file_uploader("Anexo em PDF/Imagem da Acta Assinada", type=["pdf", "jpg", "png"])
+
+            btn_salvar_acta = st.form_submit_button("Registar Acta")
+            if btn_salvar_acta:
+                nome_anexo = ""
+                if anexo_acta is not None:
+                    nome_anexo = f"Acta_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{anexo_acta.name}"
+                    os.makedirs(DIR_ACTAS, exist_ok=True)
+                    with open(os.path.join(DIR_ACTAS, nome_anexo), "wb") as f:
+                        f.write(anexo_acta.read())
+
+                nova_acta = {
+                    "id": len(actas_db) + 1,
+                    "titulo": num_acta,
+                    "data": data_acta.strftime("%Y-%m-%d"),
+                    "texto": conteudo_transcicao,
+                    "anexo": nome_anexo
+                }
+                actas_db.append(nova_acta)
+                salvar_actas(actas_db)
+                registrar_acao("Registo de Acta", f"Adicionada acta: {num_acta}.")
+                backup_automatico()
+                st.success("Acta guardada com sucesso!")
+                st.rerun()
+
+        st.divider()
+        st.subheader("Actas Registadas")
+        for acta in actas_db:
+            with st.expander(f"📌 {acta['titulo']} - Data: {acta['data']}"):
+                st.write(acta['texto'])
+                if acta.get('anexo'):
+                    st.info(f"Ficheiro Anexo: {acta['anexo']}")
+
+    elif menu == "📇 Condóminos":
+        st.title("📇 Gestão de Condóminos 📇")
+        st.subheader("📇 Gestão de Condóminos e Credenciais de Acesso")
+        st.info("💡 **Dica:** Pode editar diretamente na tabela abaixo.")
+
+        rows_contactos = []
+        for fracao, info in contactos_db.items():
+            if fracao == "Administração do Condomínio":
+                continue
+            rows_contactos.append({
+                "Fracção": fracao,
+                "Nome do Titular": info.get('nome', ''),
+                "Telemóvel": info.get('telemovel', ''),
+                "E-mail": info.get('email', ''),
+                "NIF": info.get('nif', ''),
+                "Quota Mensal (€)": info.get('quota', 15.0),
+                "Perfil": info.get('perfil', 'Morador')
+            })
+
+        df_contactos_editavel = pd.DataFrame(rows_contactos)
+
+        df_editado = st.data_editor(
+            df_contactos_editavel,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Fracção": st.column_config.TextColumn("Fracção", required=True),
+                "Nome do Titular": st.column_config.TextColumn("Nome do Titular", required=True),
+                "Telemóvel": st.column_config.TextColumn("Telemóvel"),
+                "E-mail": st.column_config.TextColumn("E-mail", required=True),
+                "NIF": st.column_config.TextColumn("NIF"),
+                "Quota Mensal (€)": st.column_config.NumberColumn("Quota Mensal (€)", min_value=0.0, format="%.2f"),
+                "Perfil": st.column_config.SelectboxColumn("Perfil", options=["Morador", "Ambos", "Administrador"], required=True)
+            }
         )
-    else:
-        st.info("Ainda não foram registradas actividades no sistema.")
 
-# --- NAVEGAÇÃO SEGÚN MODO ---
-if modo_vista == "Administrador":
-    menu = st.sidebar.radio("Navegação", ["📊 Visão Geral", "🏦 Movimentos", "🧾 Gastos", "📝 Actas", "📇 Condóminos", "🛡️ Auditoria"])
-    # ... (AQUI VA TODO TU CÓDIGO DE ADMINISTRADOR QUE YA TIENES) ...
-    # Asegúrate de mantener la indentación correcta para el bloque Administrador
+        st.divider()
+        btn_salvar_edicao = st.button("💾 Guardar Alterações na Tabela de Condóminos")
 
+        if btn_salvar_edicao:
+            fraccoes_novas = df_editado["Fracção"].tolist()
+            if len(fraccoes_novas) != len(set(fraccoes_novas)):
+                st.error("❌ Erro: Existem fracções duplicadas.")
+            else:
+                novo_contactos_db = {"Administração do Condomínio": contactos_db.get("Administração do Condomínio", CONTACTOS_INICIAIS["Administração do Condomínio"])}
+                for _, row in df_editado.iterrows():
+                    fracao_key = str(row["Fracção"]).strip()
+                    pwd_actual = contactos_db.get(fracao_key, {}).get('password', 'fontana2')
+                    must_change_actual = contactos_db.get(fracao_key, {}).get('must_change', False)
+
+                    novo_contactos_db[fracao_key] = {
+                        "nome": row["Nome do Titular"],
+                        "email": row["E-mail"],
+                        "telemovel": row["Telemóvel"],
+                        "nif": row["NIF"],
+                        "quota": float(row["Quota Mensal (€)"]),
+                        "perfil": row["Perfil"],
+                        "password": pwd_actual,
+                        "must_change": must_change_actual
+                    }
+
+                contactos_db = novo_contactos_db
+                salvar_contactos(contactos_db)
+                registrar_acao("Edição de Condóminos", "Actualização da tabela de condóminos.")
+                backup_automatico()
+                st.success("✅ Condóminos atualizados com sucesso!")
+                st.rerun()
+
+        st.divider()
+        st.subheader("🔑 Redefinir Palavra-passe de um Condómino")
+        with st.form("form_reset_pwd"):
+            fracao_target = st.selectbox("Selecione a Fracção:", [f for f in contactos_db.keys() if f != "Administração do Condomínio"])
+            nova_temp_pwd = st.text_input("Nova Palavra-passe Temporária", value="fontana2")
+            btn_reset = st.form_submit_button("Resetar Palavra-passe e Forçar Alteração")
+
+            if btn_reset:
+                contactos_db[fracao_target]['password'] = nova_temp_pwd
+                contactos_db[fracao_target]['must_change'] = True
+                salvar_contactos(contactos_db)
+                registrar_acao("Reset de Password", f"Palavra-passe redefinida para {fracao_target}.")
+                backup_automatico()
+                st.success(f"Palavra-passe de {fracao_target} redefinida com sucesso.")
+
+    elif menu == "🛡️ Auditoria":
+        st.title("🛡️ Auditoria & Backups 🛡️")
+        st.subheader("🛡️ Auditoria & Backups do Sistema")
+
+        st.markdown("### 📥 Criar e Transferir Cópia de Segurança")
+        st.write("Transfira um ficheiro `.zip` com todos os dados da base de dados e anexos antes de realizar atualizações.")
+
+        zip_buffer = gerar_backup_zip()
+        data_zip = zip_buffer.read()
+
+        st.download_button(
+            label="⬇️ Transferir Backup Completo (.zip)",
+            data=data_zip,
+            file_name=f"Backup_Condominio_Fontana2_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+            mime="application/zip",
+            use_container_width=True
+        )
+
+        st.divider()
+        st.markdown("### 🔄 Restaurar / Transferir Backup (Fusão Inteligente)")
+        st.warning("⚠️ **Atenção:** Ao enviar um backup anterior `.zip`, o sistema fará uma **validação e fusão inteligente (Merge)**.")
+        backup_submetido = st.file_uploader("Selecione o ficheiro `.zip` do backup para restaurar", type=["zip"])
+        if backup_submetido is not None:
+            if st.button("🚀 Processar e Fundir Dados do Backup"):
+                with st.spinner("A analisar e a restaurar dados em segurança..."):
+                    sucesso, relatorio = restaurar_backup_zip(backup_submetido)
+                    if sucesso:
+                        st.success("✅ Restauro e fusão concluídos com sucesso!")
+                        st.markdown("**Relatório da Fusão:**")
+                        for linha in relatorio:
+                            st.write(f"- {linha}")
+                        registrar_acao("Restauro de Backup", "Importação e fusão bem-sucedida de ficheiro ZIP de backup.")
+                        backup_automatico()
+                    else:
+                        st.error("❌ Ocorreu um erro ao restaurar o backup.")
+                        for erro in relatorio:
+                            st.error(erro)
+
+        st.divider()
+        st.subheader("📋 Diário de Auditoria")
+        logs = carregar_logs()
+        st.write(f"Total de entradas registradas no diário de auditoria: **{len(logs)}**")
+
+        if logs:
+            df_logs = pd.DataFrame(logs)
+            st.dataframe(df_logs.sort_values(by="timestamp", ascending=False), use_container_width=True)
+
+            csv_logs = df_logs.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Transferir Historial de Auditoria (CSV)",
+                data=csv_logs,
+                file_name=f"auditoria_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("Ainda não foram registradas actividades no sistema.")
+
+# --- VISTA MORADOR / CONDÓMINO ---
 else:
-    # --- VISTA MORADOR / CONDÓMINO ---
     fracao_user = st.session_state['user_fracao']
     st.title(f"🏠 Portal do Condómino - Fracção {fracao_user}")
 
-    if 'morador_menu_option' not in st.session_state: st.session_state['morador_menu_option'] = "📊 O Meu Plano"
-    if st.session_state.get('jump_to_mes'): st.session_state['morador_menu_option'] = "🧾 Recibos"
+    morador_tab_opcoes = ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"]
+    
+    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos"
+    if st.session_state.get('jump_to_mes'):
+        st.session_state['morador_menu_option'] = "🧾 Recibos"
 
-    menu_morador = st.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_menu_option", horizontal=True)
+    menu_morador = st.radio(
+        "Navegação Morador",
+        morador_tab_opcoes,
+        key="morador_menu_option",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
     if menu_morador == "📊 O Meu Plano":
-        st.subheader("Estado de Pagamento das Quotas Mensais")
-        meses = [f"{datetime.now().year - (1 if m > datetime.now().month else 0)}-{m:02d}" for m in range(datetime.now().month, 0, -1)] + [f"{datetime.now().year-1}-{m:02d}" for m in range(12, datetime.now().month, -1)]
-        
-        st.markdown("""<style>.stButton button {width: 100%; height: 65px; border-radius: 10px;}</style>""", unsafe_allow_html=True)
-        
-        cols = st.columns(6)
-        for idx, m in enumerate(meses):
-            pago = any(m in str(r.get('Mes_Ano_Quota', '')) for _, r in df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)].iterrows())
+        st.subheader("Estado de Pagamento das Quotas Mensais (Últimos 24 Meses)")
+        st.info("💡 **Dica:** Clique no botão de qualquer mês pago para abrir e emitir o recibo correspondente.")
+
+        meses_24 = []
+        data_ref = datetime.now()
+        for i in range(24):
+            mes = data_ref.month - i
+            ano = data_ref.year
+            while mes <= 0:
+                mes += 12
+                ano -= 1
+            meses_24.append(f"{ano}-{mes:02d}")
+        meses_24.reverse()
+
+        col_list = st.columns(8)
+        for idx, m_str in enumerate(meses_24):
+            pago = False
+            if not df_movimentos.empty:
+                if 'Fracção Associada' in df_movimentos.columns and 'Valor (€)' in df_movimentos.columns:
+                    movs_fracao = df_movimentos[
+                        (df_movimentos['Fracção Associada'] == fracao_user) &
+                        (df_movimentos['Valor (€)'] > 0)
+                    ]
+                    for _, r in movs_fracao.iterrows():
+                        q_str = str(r.get('Mes_Ano_Quota', '') or '')
+                        meses_da_linha = [x.strip() for x in q_str.split(',') if x.strip()]
+                        if m_str in meses_da_linha:
+                            pago = True
+                            break
+
+            col_target = col_list[idx % 8]
             if pago:
-                if cols[idx % 6].button(f"✅ {m}\nPago", key=f"btn_{m}", type="primary"):
-                    st.session_state['jump_to_mes'] = m
+                if col_target.button(f"✅ {m_str}\n\nPago", key=f"btn_pago_{m_str}", use_container_width=True, type="primary"):
+                    st.session_state['jump_to_mes'] = m_str
+                    st.session_state['morador_menu_option'] = "🧾 Recibos"
                     st.rerun()
             else:
-                cols[idx % 6].button(f"❌ {m}\nPendente", key=f"btn_{m}", disabled=True)
+                col_target.button(f"❌ {m_str}\n\nPendente", key=f"btn_pend_{m_str}", disabled=True, use_container_width=True)
 
     elif menu_morador == "🧾 Recibos":
-        st.subheader("🧾 Emitir e Transferir Recibo")
-        movs = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
-        if not movs.empty:
+        st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
+        movs_recibos = df_movimentos[
+            (df_movimentos['Fracção Associada'] == fracao_user) &
+            (df_movimentos['Valor (€)'] > 0)
+        ]
+
+        if not movs_recibos.empty:
             mes_pre = st.session_state.get('jump_to_mes')
-            options = movs.index.tolist()
+            options = movs_recibos.index.tolist()
             default_idx = 0
             if mes_pre:
-                for i, idx in enumerate(options):
-                    if mes_pre in str(df_movimentos.loc[idx, 'Mes_Ano_Quota']): default_idx = i; break
-                st.session_state['jump_to_mes'] = None
-            
-            sel_idx = st.selectbox("Selecione a Transação:", options, index=default_idx, format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y')} | {df_movimentos.loc[x, 'Valor (€)']}€ | {df_movimentos.loc[x, 'Mes_Ano_Quota']}")
-            mov = df_movimentos.loc[sel_idx]
-            
-            dados = {'ref_id': mov.get('Hash_Movimento', str(sel_idx))[:8].upper(), 'data_emissao': datetime.now().strftime('%d/%m/%Y'), 'fracao': fracao_user, 'titular': contactos_db.get(fracao_user, {}).get('nome', 'Condómino'), 'nif': contactos_db.get(fracao_user, {}).get('nif', 'N/A'), 'valor': float(mov['Valor (€)']), 'meses_pagos': str(mov.get('Mes_Ano_Quota', 'Quota')), 'data_processamento': mov['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov['Data Val']) else 'N/A', 'conta_bancaria': '9-3085758-000-001'}
-            pdf = gerar_recibo_pdf(dados, obter_info_admin())
-            st.download_button("📥 Transferir Recibo (PDF)", data=pdf, file_name=f"Recibo_{dados['ref_id']}.pdf", mime="application/pdf", use_container_width=True)
+                for i_opt, idx_opt in enumerate(options):
+                    q_str = str(df_movimentos.loc[idx_opt, 'Mes_Ano_Quota'] or '')
+                    if mes_pre in [x.strip() for x in q_str.split(',')]:
+                        default_idx = i_opt
+                        break
+                st.session_state['jump_to_mes'] = None  # Reset após a seleção
+
+            mov_sel_idx = st.selectbox(
+                "Selecione a Transação de Pagamento:",
+                options,
+                index=default_idx,
+                format_func=lambda x: f"Data: {df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y') if pd.notnull(df_movimentos.loc[x, 'Data Mov']) else 'N/A'} | Valor: {df_movimentos.loc[x, 'Valor (€)']} € | Quota(s): {df_movimentos.loc[x, 'Mes_Ano_Quota']}"
+            )
+
+            mov_sel = df_movimentos.loc[mov_sel_idx]
+            info_prop = contactos_db.get(fracao_user, {})
+
+            data_transferencia = mov_sel['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Val']) else (mov_sel['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Mov']) else 'N/A')
+            meses_pagos = mov_sel.get('Mes_Ano_Quota', 'Quota Regular')
+
+            admin_validador = mov_sel.get('Administrador Validador', '')
+            if pd.isna(admin_validador) or str(admin_validador).strip() in ['', 'None', 'Administrador do Condomínio', 'nan']:
+                info_admin = obter_info_admin()
+                admin_validador = info_admin['nome']
+                cargo_admin = info_admin['cargo']
+            else:
+                cargo_admin = 'Administrador do Condomínio'
+
+            hash_val = mov_sel.get('Hash_Movimento', '')
+            if pd.notnull(hash_val) and isinstance(hash_val, str) and len(hash_val) >= 8:
+                ref_id = hash_val[:8].upper()
+            else:
+                ref_id = f"REC-{mov_sel.name}".upper()
+
+            dados_recibo = {
+                'ref_id': ref_id,
+                'data_emissao': datetime.now().strftime('%d/%m/%Y'),
+                'fracao': fracao_user,
+                'titular': info_prop.get('nome', 'Condómino'),
+                'nif': info_prop.get('nif', 'N/A'),
+                'valor': float(mov_sel['Valor (€)']),
+                'meses_pagos': str(meses_pagos),
+                'data_processamento': data_transferencia,
+                'conta_bancaria': '9-3085758-000-001'
+            }
+
+            pdf_bytes = gerar_recibo_pdf(dados_recibo, {'nome': admin_validador, 'cargo': cargo_admin})
+
+            with st.expander("👁️ Pré-visualização do Recibo"):
+                st.code(f"""
+    RECIBO DE PAGAMENTO DE CONDOMÍNIO
+    PRACETA JOSÉ FONTANA N.º 2 - PÓVOA DE SANTA IRIA
+
+    N.º Recibo / Ref: {ref_id}
+    Data de Emissão: {dados_recibo['data_emissao']}
+    Fracção: {fracao_user}
+    Titular: {dados_recibo['titular']}
+    NIF: {dados_recibo['nif']}
+
+    Valor Recebido: {dados_recibo['valor']:.2f} €
+    Referente a: {meses_pagos}
+    Data da Transferência: {data_transferencia}
+    Conta Bancária: {dados_recibo['conta_bancaria']}
+
+    Validado por: {admin_validador}
+    Cargo: {cargo_admin}
+    Validado: Depósito/Transferência Bancária Confirmada
+                """, language="text")
+
+            st.download_button(
+                label="📥 Transferir Recibo (PDF)",
+                data=pdf_bytes,
+                file_name=f"Recibo_Condominio_{fracao_user}_{ref_id}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+            texto_recibo = f"""
+    ====================================================================
+                   RECIBO DE PAGAMENTO DE CONDOMÍNIO
+        PRACETA JOSÉ FONTANA N.º 2 - PÓVOA DE SANTA IRIA
+    ====================================================================
+    N.º Recibo / Ref: {ref_id}
+    Data de Emissão: {datetime.now().strftime('%d/%m/%Y')}
+    -------------------------------------------------------------------
+    Fracção: {fracao_user}
+    Titular: {info_prop.get('nome', 'Condómino')}
+    NIF: {info_prop.get('nif', 'N/A')}
+    -------------------------------------------------------------------
+    Recebemos de V. Exa. a quantia de: {mov_sel['Valor (€)']:.2f} €
+    Referente a: Liquidação de Quota(s) de Condomínio [{meses_pagos}]
+    Data da Transferência: {data_transferencia}
+    Conta Bancária BPI: 9-3085758-000-001
+    -------------------------------------------------------------------
+    Validado por: {admin_validador}
+    Cargo: {cargo_admin}
+    Validado: Depósito/Transferência Bancária Confirmada
+    ====================================================================
+            """
+
+            st.download_button(
+                label="📥 Transferir Recibo (TXT alternativo)",
+                data=texto_recibo,
+                file_name=f"Recibo_Condominio_{fracao_user}_{ref_id}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        else:
+            st.info("Não existem pagamentos registados para esta fracção até o momento.")
 
     elif menu_morador == "📝 Actas":
-        st.subheader("📝 Actas")
-        for acta in actas_db:
-            with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
-                st.write(acta.get('texto', ''))
-                if acta.get('anexo'):
-                    caminho = os.path.join(DIR_ACTAS, acta['anexo'])
-                    if os.path.exists(caminho):
-                        with open(caminho, "rb") as f: st.download_button(f"📥 {acta['anexo']}", data=f.read(), file_name=acta['anexo'])
+        st.subheader("📝 Consulta de Actas das Assembleias")
+        if actas_db:
+            for acta in actas_db:
+                with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
+                    st.write(acta['texto'])
+                    if acta.get('anexo'):
+                        caminho_anexo = os.path.join(DIR_ACTAS, acta['anexo'])
+                        if os.path.exists(caminho_anexo):
+                            with open(caminho_anexo, "rb") as f_anexo:
+                                st.download_button(
+                                    f"📥 Transferir Anexo ({acta['anexo']})",
+                                    data=f_anexo.read(),
+                                    file_name=acta['anexo']
+                                )
+        else:
+            st.info("Ainda não existem actas disponibilizadas.")
 
+# --- FOOTER GLOBAL ---
 st.sidebar.divider()
 if st.sidebar.button("Terminar Sessão 🚪"):
-    st.session_state.update({'authenticated': False, 'user_email': None, 'user_fracao': None})
+    registrar_acao("Logout", f"O utilizador {st.session_state['user_email']} terminou a sessão.")
+    st.session_state['authenticated'] = False
     st.rerun()
