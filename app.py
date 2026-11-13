@@ -1144,24 +1144,38 @@ else:
 
     menu_morador = st.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_menu_option", horizontal=True)
 
-    if menu_morador == "📊 O Meu Plano":
+        if menu_morador == "📊 O Meu Plano":
         st.subheader("Estado de Pagamento das Quotas Mensais")
         
         meses = [f"{datetime.now().year - (1 if m > datetime.now().month else 0)}-{m:02d}" for m in range(datetime.now().month, 0, -1)] + [f"{datetime.now().year-1}-{m:02d}" for m in range(12, datetime.now().month, -1)]
         
-        # CSS para forçar botões idênticos
-        st.markdown("""<style>.stButton button {width: 100%; height: 65px; border-radius: 10px;}</style>""", unsafe_allow_html=True)
+        # CSS para forçar todos os botões a terem o mesmo tamanho e estilo
+        st.markdown("""
+            <style>
+            div[data-testid="stButton"] button {
+                width: 100%;
+                height: 80px;
+                white-space: pre-wrap;
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
         cols = st.columns(6)
         for idx, m in enumerate(meses):
             pago = any(m in str(r.get('Mes_Ano_Quota', '')) for _, r in df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)].iterrows())
             
+            # Criamos sempre um botão para manter o tamanho, 
+            # usamos 'type' diferente para diferenciar Pago (Primary) de Pendente (Secondary)
             if pago:
-                if cols[idx % 6].button(f"✅ {m}\nPago", key=f"btn_{m}"):
+                if cols[idx % 6].button(f"✅ {m}\nPago", key=f"btn_{m}", type="primary"):
                     st.session_state['jump_to_mes'] = m
                     st.rerun()
             else:
-                cols[idx % 6].error(f"❌ {m}\nPendente")
+                cols[idx % 6].button(f"❌ {m}\nPendente", key=f"btn_{m}", disabled=True)
 
     elif menu_morador == "🧾 Recibos":
         st.subheader("🧾 Emitir e Transferir Recibo")
