@@ -1135,123 +1135,81 @@ elif menu == "🛡️ Auditoria":
         st.info("Ainda não foram registradas actividades no sistema.")
 
 # --- VISTA MORADOR / CONDÓMINO ---
-# --- VISTA MORADOR / CONDÓMINO ---
 else:
     fracao_user = st.session_state['user_fracao']
     st.title(f"🏠 Portal do Condómino - Fracção {fracao_user}")
 
-    # Inicializar estado da navegação
     if 'morador_menu_option' not in st.session_state: st.session_state['morador_menu_option'] = "📊 O Meu Plano"
-    
-    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos"
-    if st.session_state.get('jump_to_mes'):
-        st.session_state['morador_menu_option'] = "🧾 Recibos"
+    if st.session_state.get('jump_to_mes'): st.session_state['morador_menu_option'] = "🧾 Recibos"
 
-    menu_morador = st.radio(
-        "Navegação Morador",
-        ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"],
-        key="morador_menu_option",
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+    menu_morador = st.radio("Navegação", ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"], key="morador_menu_option", horizontal=True)
 
     if menu_morador == "📊 O Meu Plano":
         st.subheader("Estado de Pagamento das Quotas Mensais")
-        st.info("💡 **Dica:** Clique no botão de um mês pago (verde) para abrir e emitir o recibo correspondente.")
         
-        # Gerar os últimos 24 meses
-        meses_24 = []
-        data_ref = datetime.now()
-        for i in range(24):
-            mes = data_ref.month - i; ano = data_ref.year
-            while mes <= 0: mes += 12; ano -= 1
-            meses_24.append(f"{ano}-{mes:02d}")
-        meses_24.reverse()
-
-        # CSS para forçar altura e largura igual em todos os botões
-        st.markdown("""<style>.stButton button {width: 100%; height: 60px;}</style>""", unsafe_allow_html=True)
+        meses = [f"{datetime.now().year - (1 if m > datetime.now().month else 0)}-{m:02d}" for m in range(datetime.now().month, 0, -1)] + [f"{datetime.now().year-1}-{m:02d}" for m in range(12, datetime.now().month, -1)]
+        
+        # CSS para forçar botões idênticos
+        st.markdown("""<style>.stButton button {width: 100%; height: 65px; border-radius: 10px;}</style>""", unsafe_allow_html=True)
         
         cols = st.columns(6)
-        for idx, m_str in enumerate(meses_24):
-            pago = False
-            # Verifica se existe algum movimento reconciliado para este mês e fração
-            if not df_movimentos.empty:
-                movs_fracao = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
-                for _, r in movs_fracao.iterrows():
-                    if m_str in str(r.get('Mes_Ano_Quota', '')): pago = True; break
+        for idx, m in enumerate(meses):
+            pago = any(m in str(r.get('Mes_Ano_Quota', '')) for _, r in df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)].iterrows())
             
-            # Botão clicável se estiver pago, caso contrário mostra erro
             if pago:
-                if cols[idx % 6].button(f"✅ {m_str}\nPago", key=f"btn_{m_str}"):
-                    st.session_state['jump_to_mes'] = m_str
+                if cols[idx % 6].button(f"✅ {m}\nPago", key=f"btn_{m}"):
+                    st.session_state['jump_to_mes'] = m
                     st.rerun()
             else:
-                cols[idx % 6].error(f"❌ {m_str}\nPendente")
+                cols[idx % 6].error(f"❌ {m}\nPendente")
 
     elif menu_morador == "🧾 Recibos":
-        st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
-        movs_recibos = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
+        st.subheader("🧾 Emitir e Transferir Recibo")
+        movs = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
         
-        if not movs_recibos.empty:
+        if not movs.empty:
             mes_pre = st.session_state.get('jump_to_mes')
-            options = movs_recibos.index.tolist()
+            options = movs.index.tolist()
             default_idx = 0
-            
-            # Tenta encontrar o índice da transação correspondente ao mês solicitado
             if mes_pre:
                 for i, idx in enumerate(options):
-                    if mes_pre in str(df_movimentos.loc[idx, 'Mes_Ano_Quota']): 
-                        default_idx = i; break
-                st.session_state['jump_to_mes'] = None # Reset após navegação
+                    if mes_pre in str(df_movimentos.loc[idx, 'Mes_Ano_Quota']): default_idx = i; break
+                st.session_state['jump_to_mes'] = None 
             
-            # Selectbox seguro que utiliza o índice da lista de opções
-            sel_idx = st.selectbox(
-                "Selecione a Transação de Pagamento:", 
-                options, 
-                index=default_idx, 
-                format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y') if pd.notnull(df_movimentos.loc[x, 'Data Mov']) else 'N/A'} | {df_movimentos.loc[x, 'Valor (€)']} € | {df_movimentos.loc[x, 'Mes_Ano_Quota']}"
-            )
+            sel_idx = st.selectbox("Selecione a Transação:", options, index=default_idx, format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov']} | {df_movimentos.loc[x, 'Valor (€)']}€ | {df_movimentos.loc[x, 'Mes_Ano_Quota']}")
+            mov = df_movimentos.loc[sel_idx]
             
-            mov_sel = df_movimentos.loc[sel_idx]
-            info_prop = contactos_db.get(fracao_user, {})
-            
-            # Identificar validador
-            info_admin = obter_info_admin()
+            # Correção do erro TypeError: garantimos que ref_id seja sempre string
+            raw_hash = str(mov.get('Hash_Movimento', str(sel_idx)))
+            ref_id = raw_hash[:8].upper()
             
             dados = {
-                'ref_id': mov_sel.get('Hash_Movimento', str(sel_idx))[:8].upper(), 
+                'ref_id': ref_id, 
                 'data_emissao': datetime.now().strftime('%d/%m/%Y'), 
                 'fracao': fracao_user, 
-                'titular': info_prop.get('nome', 'Condómino'), 
-                'nif': info_prop.get('nif', 'N/A'), 
-                'valor': mov_sel['Valor (€)'], 
-                'meses_pagos': mov_sel.get('Mes_Ano_Quota', 'Quota Regular'), 
-                'data_processamento': mov_sel['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Val']) else 'N/A', 
+                'titular': contactos_db.get(fracao_user, {}).get('nome', 'Condómino'), 
+                'nif': contactos_db.get(fracao_user, {}).get('nif', 'N/A'), 
+                'valor': float(mov['Valor (€)']), 
+                'meses_pagos': str(mov.get('Mes_Ano_Quota', 'Quota')), 
+                'data_processamento': mov['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov['Data Val']) else 'N/A', 
                 'conta_bancaria': '9-3085758-000-001'
             }
             
-            pdf = gerar_recibo_pdf(dados, info_admin)
+            pdf = gerar_recibo_pdf(dados, obter_info_admin())
             st.download_button("📥 Transferir Recibo (PDF)", data=pdf, file_name=f"Recibo_{dados['ref_id']}.pdf", mime="application/pdf", use_container_width=True)
-        else:
-            st.info("Não existem pagamentos registados para esta fracção.")
+        else: st.info("Não existem pagamentos.")
 
     elif menu_morador == "📝 Actas":
-        st.subheader("📝 Consulta de Actas das Assembleias")
-        if actas_db:
-            for acta in actas_db:
-                with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
-                    st.write(acta.get('texto', ''))
-                    if acta.get('anexo'):
-                        caminho = os.path.join(DIR_ACTAS, acta['anexo'])
-                        if os.path.exists(caminho):
-                            with open(caminho, "rb") as f: 
-                                st.download_button(f"📥 {acta['anexo']}", data=f.read(), file_name=acta['anexo'])
-        else:
-            st.info("Ainda não existem actas disponibilizadas.")
+        st.subheader("📝 Actas")
+        for acta in actas_db:
+            with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
+                st.write(acta.get('texto', ''))
+                if acta.get('anexo'):
+                    caminho = os.path.join(DIR_ACTAS, acta['anexo'])
+                    if os.path.exists(caminho):
+                        with open(caminho, "rb") as f: st.download_button(f"📥 {acta['anexo']}", data=f.read(), file_name=acta['anexo'])
 
-# --- FOOTER GLOBAL ---
 st.sidebar.divider()
 if st.sidebar.button("Terminar Sessão 🚪"):
-    registrar_acao("Logout", f"O utilizador {st.session_state['user_email']} terminou a sessão.")
-    st.session_state['authenticated'] = False
+    st.session_state.update({'authenticated': False, 'user_email': None, 'user_fracao': None})
     st.rerun()
