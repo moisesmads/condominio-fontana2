@@ -8,6 +8,8 @@ import io
 import re
 import shutil
 import zipfile
+import requests
+import base64
 from datetime import datetime
 import fitz  # PyMuPDF
 from PIL import Image
@@ -18,6 +20,72 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
+
+# --- Configurações de Sincronização com GitHub ---
+GITHUB_REPO = st.secrets.get("github", {}).get("repo", "SEU_USUARIO/condominio-fontana2")
+GITHUB_BRANCH = "main"
+
+def fetch_remote_files():
+    """Baixa os arquivos de dados do GitHub e sobrescreve os locais."""
+    token = st.secrets["github"]["token"]
+    headers = {"Authorization": f"token {token}"}
+    files_to_fetch = [FILE_CONTACTOS, FILE_MOVIMENTOS, FILE_GASTOS, FILE_ACTAS, FILE_AUDIT]
+    
+    for filename in files_to_fetch:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}?ref={GITHUB_BRANCH}"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                content = response.json()["content"]
+                decoded_content = base64.b64decode(content).decode('utf-8')
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(decoded_content)
+                print(f"Arquivo {filename} restaurado do GitHub.")
+            else:
+                print(f"Erro ao buscar {filename}: {response.status_code}")
+        except Exception as e:
+            print(f"Erro de conexão ao buscar {filename}: {e}")
+
+def push_file_to_github(filename, commit_message):
+    """Faz o upload de um arquivo específico para o GitHub."""
+    token = st.secrets["github"]["token"]
+    headers = {"Authorization": f"token {token}"}
+    
+    # Obter o SHA atual do arquivo para atualização
+    url_get = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}?ref={GITHUB_BRANCH}"
+    try:
+        response_get = requests.get(url_get, headers=headers)
+        sha = response_get.json().get("sha", "") if response_get.status_code == 200 else ""
+    except:
+        sha = ""
+    
+    try:
+        with open(filename, "rb") as f:
+            content = base64.b64encode(f.read()).decode('utf-8')
+    except Exception as e:
+        print(f"Erro ao ler arquivo {filename}: {e}")
+        return False
+    
+    data = {
+        "message": commit_message,
+        "content": content,
+        "branch": GITHUB_BRANCH
+    }
+    if sha:
+        data["sha"] = sha
+        
+    url_put = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
+    try:
+        response_put = requests.put(url_put, headers=headers, json=data)
+        if response_put.status_code in [200, 201]:
+            print(f"Arquivo {filename} enviado com sucesso para o GitHub.")
+            return True
+        else:
+            print(f"Erro ao enviar {filename}: {response_put.status_code}")
+            return False
+    except Exception as e:
+        print(f"Erro de conexão ao enviar {filename}: {e}")
+        return False
 
 # --- Inicialização de Estados Globais ---
 if 'jump_to_mes' not in st.session_state:
@@ -254,6 +322,7 @@ def restaurar_backup_zip(uploaded_file):
 def salvar_contactos(contactos):
     with open(FILE_CONTACTOS, "w", encoding="utf-8") as f:
         json.dump(contactos, f, ensure_ascii=False, indent=4)
+    push_file_to_github(FILE_CONTACTOS, "Actualização de contactos")
 
 def carregar_contactos():
     if os.path.exists(FILE_CONTACTOS):
@@ -311,6 +380,7 @@ def salvar_movimentos(df):
     if 'Data Val' in df_copy.columns and pd.api.types.is_datetime64_any_dtype(df_copy['Data Val']):
         df_copy['Data Val'] = df_copy['Data Val'].dt.strftime('%d/%m/%Y')
     df_copy.to_csv(FILE_MOVIMENTOS, index=False)
+    push_file_to_github(FILE_MOVIMENTOS, "Actualização de movimentos")
 
 def carregar_gastos():
     if os.path.exists(FILE_GASTOS):
@@ -322,6 +392,7 @@ def carregar_gastos():
 
 def salvar_gastos(df):
     df.to_csv(FILE_GASTOS, index=False)
+    push_file_to_github(FILE_GASTOS, "Actualização de gastos")
 
 def carregar_actas():
     if os.path.exists(FILE_ACTAS):
@@ -332,6 +403,7 @@ def carregar_actas():
 def salvar_actas(actas):
     with open(FILE_ACTAS, "w", encoding="utf-8") as f:
         json.dump(actas, f, ensure_ascii=False, indent=4)
+    push_file_to_github(FILE_ACTAS, "Actualização de actas")
 
 def gerar_hash_movimento(data, descr, valor):
     string_unica = f"{data}_{descr}_{valor}"
@@ -552,6 +624,12 @@ def obter_info_admin():
     }
 
 # --- SESSÃO & AUTENTICAÇÃO ---
+# Sincronizar arquivos ao iniciar
+try:
+    fetch_remote_files()
+except Exception as e:
+    print(f"Não foi possível sincronizar com o GitHub: {e}")
+
 contactos_db = carregar_contactos()
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
@@ -835,7 +913,7 @@ if modo_vista == "Administrador":
                     lista_faturas_opcoes = ["Nenhuma / Não Aplicável"]
                     if not df_gastos.empty:
                         for _, g_row in df_gastos.iterrows():
-                            lista_faturas_opcoes.append(f"{g_row['ID']} - {g_row.get('Fornecedor', 'N/A')} ({g_row['Valor (€)']} €)")
+                            lista_faturas_opcoes.append(f"{g_row['ID']} - {g_row.get('Foreach', 'N/A')} ({g_row['Valor (€)']} €)")
 
                     fatAtual_id = row_sel.get('Fatura_Despesa_ID')
                     default_fat_idx = 0
@@ -1141,7 +1219,6 @@ else:
 
     morador_tab_opcoes = ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"]
     
-    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos" ANTES de desenhar o widget
     if st.session_state.get('jump_to_mes'):
         st.session_state['morador_menu_option'] = "🧾 Recibos"
 
@@ -1168,7 +1245,6 @@ else:
             meses_24.append(f"{ano}-{mes:02d}")
         meses_24.reverse()
 
-        # Estilo CSS para garantir que TODOS os botões da grelha têm exatamente o mesmo tamanho
         st.markdown("""
             <style>
             div[data-testid="stColumn"] div[data-testid="stButton"] button {
@@ -1198,11 +1274,11 @@ else:
 
             col_target = col_list[idx % 8]
             if pago:
-                if col_target.button(f"✅ {m_str}\n\nPago", key=f"btn_pago_{m_str}", type="primary"):
+                if col_target.button(f"✅ {m_str}\n\nPago", key=f"btnPago_{m_str}", type="primary"):
                     st.session_state['jump_to_mes'] = m_str
                     st.rerun()
             else:
-                col_target.button(f"❌ {m_str}\n\nPendente", key=f"btn_pend_{m_str}", disabled=True)
+                col_target.button(f"❌ {m_str}\n\nPendente", key=f"btnPend_{m_str}", disabled=True)
 
     elif menu_morador == "🧾 Recibos":
         st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
@@ -1221,7 +1297,7 @@ else:
                     if mes_pre in [x.strip() for x in q_str.split(',')]:
                         default_idx = i_opt
                         break
-                st.session_state['jump_to_mes'] = None  # Reset após a seleção
+                st.session_state['jump_to_mes'] = None
 
             mov_sel_idx = st.selectbox(
                 "Selecione a Transação de Pagamento:",
