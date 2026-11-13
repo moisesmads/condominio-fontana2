@@ -1139,204 +1139,81 @@ else:
     fracao_user = st.session_state['user_fracao']
     st.title(f"🏠 Portal do Condómino - Fracção {fracao_user}")
 
-    morador_tab_opcoes = ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"]
-    
-    # Se houver um pedido de jump_to_mes ativo, força a navegação para "🧾 Recibos"
+    # Inicializar estado
+    if 'jump_to_mes' not in st.session_state: st.session_state['jump_to_mes'] = None
+    if 'morador_menu_option' not in st.session_state: st.session_state['morador_menu_option'] = "📊 O Meu Plano"
+
+    # Forzar cambio de pestaña si hay un salto pendiente
     if st.session_state.get('jump_to_mes'):
         st.session_state['morador_menu_option'] = "🧾 Recibos"
 
     menu_morador = st.radio(
-        "Navegação Morador",
-        morador_tab_opcoes,
+        "Navegação",
+        ["📊 O Meu Plano", "🧾 Recibos", "📝 Actas"],
         key="morador_menu_option",
-        horizontal=True,
-        label_visibility="collapsed"
+        horizontal=True
     )
 
     if menu_morador == "📊 O Meu Plano":
-        st.subheader("Estado de Pagamento das Quotas Mensais (Últimos 24 Meses)")
-        st.info("💡 **Dica:** Clique no botão de qualquer mês pago para abrir e emitir o recibo correspondente.")
-
+        st.subheader("Estado de Pagamento das Quotas Mensais")
+        
         meses_24 = []
         data_ref = datetime.now()
         for i in range(24):
-            mes = data_ref.month - i
-            ano = data_ref.year
-            while mes <= 0:
-                mes += 12
-                ano -= 1
+            mes = data_ref.month - i; ano = data_ref.year
+            while mes <= 0: mes += 12; ano -= 1
             meses_24.append(f"{ano}-{mes:02d}")
         meses_24.reverse()
 
-        col_list = st.columns(8)
+        cols = st.columns(6)
         for idx, m_str in enumerate(meses_24):
             pago = False
             if not df_movimentos.empty:
-                if 'Fracção Associada' in df_movimentos.columns and 'Valor (€)' in df_movimentos.columns:
-                    movs_fracao = df_movimentos[
-                        (df_movimentos['Fracção Associada'] == fracao_user) &
-                        (df_movimentos['Valor (€)'] > 0)
-                    ]
-                    for _, r in movs_fracao.iterrows():
-                        q_str = str(r.get('Mes_Ano_Quota', '') or '')
-                        meses_da_linha = [x.strip() for x in q_str.split(',') if x.strip()]
-                        if m_str in meses_da_linha:
-                            pago = True
-                            break
-
-            col_target = col_list[idx % 8]
+                movs = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
+                for _, r in movs.iterrows():
+                    if m_str in str(r.get('Mes_Ano_Quota', '')): pago = True; break
+            
+            # Botones con tamaño uniforme
             if pago:
-                # Botão verde totalmente clicável que redireciona diretamente para o recibo
-                if col_target.button(f"✅ {m_str}\n\n[ Emitir Recibo ]", key=f"btn_pago_{m_str}", use_container_width=True, type="primary"):
+                if cols[idx % 6].button(f"✅ {m_str}\nPago", key=f"btn_{m_str}"):
                     st.session_state['jump_to_mes'] = m_str
-                    st.session_state['morador_menu_option'] = "🧾 Recibos"
                     st.rerun()
             else:
-                col_target.error(f"❌ {m_str}\n\nPendente")
+                cols[idx % 6].error(f"❌ {m_str}\nPendente")
 
     elif menu_morador == "🧾 Recibos":
-        st.subheader("🧾 Emitir e Transferir Recibo de Quotas")
-        movs_recibos = df_movimentos[
-            (df_movimentos['Fracção Associada'] == fracao_user) &
-            (df_movimentos['Valor (€)'] > 0)
-        ]
-
+        st.subheader("🧾 Emitir e Transferir Recibo")
+        movs_recibos = df_movimentos[(df_movimentos['Fracção Associada'] == fracao_user) & (df_movimentos['Valor (€)'] > 0)]
+        
         if not movs_recibos.empty:
             mes_pre = st.session_state.get('jump_to_mes')
             options = movs_recibos.index.tolist()
             default_idx = 0
             if mes_pre:
-                for i_opt, idx_opt in enumerate(options):
-                    q_str = str(df_movimentos.loc[idx_opt, 'Mes_Ano_Quota'] or '')
-                    if mes_pre in [x.strip() for x in q_str.split(',')]:
-                        default_idx = i_opt
-                        break
-                st.session_state['jump_to_mes'] = None  # Reset após a seleção
-
-            mov_sel_idx = st.selectbox(
-                "Selecione a Transação de Pagamento:",
-                options,
-                index=default_idx,
-                format_func=lambda x: f"Data: {df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y') if pd.notnull(df_movimentos.loc[x, 'Data Mov']) else ''} | Valor: {df_movimentos.loc[x, 'Valor (€)']} € | Quota(s): {df_movimentos.loc[x, 'Mes_Ano_Quota']}"
-            )
-
-            mov_sel = df_movimentos.loc[mov_sel_idx]
-            info_prop = contactos_db.get(fracao_user, {})
-
-            data_transferencia = mov_sel['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Val']) else (mov_sel['Data Mov'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Mov']) else 'N/A')
-            meses_pagos = mov_sel.get('Mes_Ano_Quota', 'Quota Regular')
-
-            admin_validador = mov_sel.get('Administrador Validador', '')
-            if pd.isna(admin_validador) or str(admin_validador).strip() in ['', 'None', 'Administrador do Condomínio', 'nan']:
-                info_admin = obter_info_admin()
-                admin_validador = info_admin['nome']
-                cargo_admin = info_admin['cargo']
-            else:
-                cargo_admin = 'Administrador do Condomínio'
-
-            hash_val = mov_sel.get('Hash_Movimento', '')
-            if pd.notnull(hash_val) and isinstance(hash_val, str) and len(hash_val) >= 8:
-                ref_id = hash_val[:8].upper()
-            else:
-                ref_id = f"REC-{mov_sel.name}".upper()
-
-            dados_recibo = {
-                'ref_id': ref_id,
-                'data_emissao': datetime.now().strftime('%d/%m/%Y'),
-                'fracao': fracao_user,
-                'titular': info_prop.get('nome', 'Condómino'),
-                'nif': info_prop.get('nif', 'N/A'),
-                'valor': mov_sel['Valor (€)'],
-                'meses_pagos': meses_pagos,
-                'data_processamento': data_transferencia,
-                'conta_bancaria': '9-3085758-000-001'
-            }
-
-            pdf_bytes = gerar_recibo_pdf(dados_recibo, {'nome': admin_validador, 'cargo': cargo_admin})
-
-            with st.expander("👁️ Pré-visualização do Recibo"):
-                st.code(f"""
-    RECIBO DE PAGAMENTO DE CONDOMÍNIO
-    PRACETA JOSÉ FONTANA N.º 2 - PÓVOA DE SANTA IRIA
-
-    N.º Recibo / Ref: {ref_id}
-    Data de Emissão: {dados_recibo['data_emissao']}
-    Fracção: {fracao_user}
-    Titular: {dados_recibo['titular']}
-    NIF: {dados_recibo['nif']}
-
-    Valor Recebido: {dados_recibo['valor']:.2f} €
-    Referente a: {meses_pagos}
-    Data da Transferência: {data_transferencia}
-    Conta Bancária: {dados_recibo['conta_bancaria']}
-
-    Validado por: {admin_validador}
-    Cargo: {cargo_admin}
-    Validado: Depósito/Transferência Bancária Confirmada
-                """, language="text")
-
-            st.download_button(
-                label="📥 Transferir Recibo (PDF)",
-                data=pdf_bytes,
-                file_name=f"Recibo_Condominio_{fracao_user}_{ref_id}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-
-            texto_recibo = f"""
-    ====================================================================
-                   RECIBO DE PAGAMENTO DE CONDOMÍNIO
-        PRACETA JOSÉ FONTANA N.º 2 - PÓVOA DE SANTA IRIA
-    ====================================================================
-    N.º Recibo / Ref: {ref_id}
-    Data de Emissão: {datetime.now().strftime('%d/%m/%Y')}
-    -------------------------------------------------------------------
-    Fracção: {fracao_user}
-    Titular: {info_prop.get('nome', 'Condómino')}
-    NIF: {info_prop.get('nif', 'N/A')}
-    -------------------------------------------------------------------
-    Recebemos de V. Exa. a quantia de: {mov_sel['Valor (€)']:.2f} €
-    Referente a: Liquidação de Quota(s) de Condomínio [{meses_pagos}]
-    Data da Transferência: {data_transferencia}
-    Conta Bancária BPI: 9-3085758-000-001
-    -------------------------------------------------------------------
-    Validado por: {admin_validador}
-    Cargo: {cargo_admin}
-    Validado: Depósito/Transferência Bancária Confirmada
-    ====================================================================
-            """
-
-            st.download_button(
-                label="📥 Transferir Recibo (TXT alternativo)",
-                data=texto_recibo,
-                file_name=f"Recibo_Condominio_{fracao_user}_{ref_id}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        else:
-            st.info("Não existem pagamentos registados para esta fracção até o momento.")
+                for i, idx in enumerate(options):
+                    if mes_pre in str(df_movimentos.loc[idx, 'Mes_Ano_Quota']): default_idx = i; break
+                st.session_state['jump_to_mes'] = None # Reset
+            
+            sel_idx = st.selectbox("Selecione a Transação:", options, index=default_idx, format_func=lambda x: f"{df_movimentos.loc[x, 'Data Mov'].strftime('%d/%m/%Y')} | {df_movimentos.loc[x, 'Valor (€)']} € | {df_movimentos.loc[x, 'Mes_Ano_Quota']}")
+            mov_sel = df_movimentos.loc[sel_idx]
+            
+            info_admin = obter_info_admin()
+            dados = {'ref_id': mov_sel.get('Hash_Movimento', str(mov_sel.name))[:8].upper(), 'data_emissao': datetime.now().strftime('%d/%m/%Y'), 'fracao': fracao_user, 'titular': contactos_db.get(fracao_user, {}).get('nome', 'Condómino'), 'nif': contactos_db.get(fracao_user, {}).get('nif', 'N/A'), 'valor': mov_sel['Valor (€)'], 'meses_pagos': mov_sel.get('Mes_Ano_Quota', 'Quota'), 'data_processamento': mov_sel['Data Val'].strftime('%d/%m/%Y') if pd.notnull(mov_sel['Data Val']) else 'N/A', 'conta_bancaria': '9-3085758-000-001'}
+            
+            pdf = gerar_recibo_pdf(dados, info_admin)
+            st.download_button("📥 Transferir PDF", data=pdf, file_name=f"Recibo_{dados['ref_id']}.pdf", mime="application/pdf", use_container_width=True)
 
     elif menu_morador == "📝 Actas":
-        st.subheader("📝 Consulta de Actas das Assembleias")
-        if actas_db:
-            for acta in actas_db:
-                with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
-                    st.write(acta['texto'])
-                    if acta.get('anexo'):
-                        caminho_anexo = os.path.join(DIR_ACTAS, acta['anexo'])
-                        if os.path.exists(caminho_anexo):
-                            with open(caminho_anexo, "rb") as f_anexo:
-                                st.download_button(
-                                    f"📥 Transferir Anexo ({acta['anexo']})",
-                                    data=f_anexo.read(),
-                                    file_name=acta['anexo']
-                                )
-        else:
-            st.info("Ainda não existem actas disponibilizadas.")
+        st.subheader("📝 Actas")
+        for acta in actas_db:
+            with st.expander(f"📌 {acta['titulo']} - {acta['data']}"):
+                st.write(acta.get('texto', ''))
+                if acta.get('anexo'):
+                    caminho = os.path.join(DIR_ACTAS, acta['anexo'])
+                    if os.path.exists(caminho):
+                        with open(caminho, "rb") as f: st.download_button(f"📥 {acta['anexo']}", f, file_name=acta['anexo'])
 
-# --- FOOTER GLOBAL ---
 st.sidebar.divider()
 if st.sidebar.button("Terminar Sessão 🚪"):
-    registrar_acao("Logout", f"O utilizador {st.session_state['user_email']} terminou a sessão.")
     st.session_state['authenticated'] = False
     st.rerun()
